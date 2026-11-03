@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debate — Project Proposal</title>
+<meta name="description" content="Project proposal for Design, Build, Ship (MPCS 51238), Autumn 2026.">
+
+<!--
+  FREE TIER LIMITS — checked 2026-11-03. Verify before relying on any of these.
+
+  SEC EDGAR .......... 10 requests/second. No key, no account. A declared
+                       User-Agent header is required. From sec.gov's own docs.
+
+  Alpaca (Basic) ..... 200 historical requests/minute, free. Equity history
+                       back to 2016. Default plan on a paper-trading account;
+                       no funding needed for data. The "latest 15 minutes"
+                       restriction applies to real-time quotes, not daily
+                       bars. From Alpaca's own docs. Still to check: whether
+                       daily bars accept adjustment=all for splits.
+
+  Equibles ........... 100 requests/day, no credit card, shared between the
+                       REST API and the MCP server. From Equibles' own page.
+                       Still to check: whether transcripts include analyst
+                       Q&A or prepared remarks only.
+
+  OpenAI API ......... No free tier. Using existing prepaid credits. Monthly
+                       budget and email alert set under Settings > Limits,
+                       plus a project-scoped key with its own budget.
+
+  Gemini (fallback) .. Free tier via AI Studio, ~15 req/min, ~1,500 req/day,
+                       no card. Pro left the free tier 2026-04-01; Flash and
+                       Flash-Lite remain. Third-party figures, unconfirmed.
+
+  Vercel ............. Hobby. Free, non-commercial.
+  Supabase ........... Free: 500MB database, pauses after a week idle.
+  Clerk .............. Free to 10,000 monthly active users.
+
+  Alpha Vantage ...... Rejected. The free key returns only
+                       TIME_SERIES_DAILY at "compact" size: the last 100
+                       trading days, unadjusted. DAILY_ADJUSTED and
+                       outputsize=full are both premium. Too short for a
+                       multi-year debate, and unadjusted closes break
+                       returns across a split.
+-->
+
+<style>
+  /* ---------------------------------------------------------------
+     Tokens from the Desk / Broadsheet system I built in Week 2 and
+     refined in Week 3. Newsprint stock, two families, the accent on
+     links only. No boxes, shadows or radii; structure comes from
+     column rules and space.
+     --------------------------------------------------------------- */
+  :root {
+    --paper:      #f2efe4;
+    --surface:    #fbf9f3;
+    --paper-deep: #ece8da;
+    --ink:        #17171a;
+    --muted:      #5d5a51;
+    --rule:       #cdc7b6;
+    --rule-mid:   #b7b1a0;
+    --accent:     #a8231d;
+    --accent-press: #8c1a15;
+
+    --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px; --s5: 24px;
+    --s6: 32px; --s7: 48px; --s8: 72px;
+
+    --serif:   Newsreader, "Iowan Old Style", Georgia, serif;
+    --grotesk: Archivo, "Helvetica Neue", Arial, sans-serif;
+
+    /* Motion, from the same system. 120ms for anything under the
+       cursor, longer for something arriving. One easing curve. */
+    --dur:      120ms;
+    --dur-slow: 560ms;
+    --ease:     cubic-bezier(0.2, 0.6, 0.3, 1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .shell {
+    max-width: 82rem;
+    margin-inline: auto;
+    padding: var(--s6) var(--s4) var(--s8);
+  }
+  @media (min-width: 900px) {
+    .shell { padding: var(--s7) var(--s7) var(--s8); }
+  }
+
+  /* --- Masthead ------------------------------------------------- */
+  .mast {
+    border-bottom: 6px solid var(--ink);
+    padding-bottom: var(--s4);
+    margin-bottom: var(--s6);
+  }
+  .kicker {
+    font-family: var(--grotesk);
+    font-size: 11px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 var(--s3);
+  }
+  .mast h1 {
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+    margin: 0 0 var(--s4);
+  }
+  .standfirst {
+    font-size: 19px;
+    line-height: 1.45;
+    margin: 0;
+    max-width: 52rem;
+  }
+  @media (min-width: 900px) {
+    .mast { display: grid; grid-template-columns: 16rem 1fr; gap: var(--s5) var(--s7); align-items: end; }
+    .mast .kicker { grid-column: 1 / -1; margin-bottom: 0; }
+    .mast h1 { font-size: 76px; margin: 0; }
+    .standfirst { font-size: 21px; }
+    .mast .chart { grid-column: 1 / -1; }
+  }
+
+  /* --- The broadsheet grid -------------------------------------- */
+  .grid { display: grid; gap: var(--s7) var(--s6); }
+  @media (min-width: 900px) {
+    .grid { grid-template-columns: repeat(12, 1fr); }
+    .c4 { grid-column: span 4; }
+    .c6 { grid-column: span 6; }
+    .c12 { grid-column: span 12; }
+    /* Column rules, as in a newspaper: a hairline between columns,
+       never around them. */
+    .ruled { border-left: 1px solid var(--rule-mid); padding-left: var(--s6); }
+  }
+
+  h2 {
+    font-family: var(--grotesk);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 var(--s4);
+    padding-bottom: var(--s2);
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-family: var(--grotesk);
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 var(--s3);
+  }
+  p { margin: 0 0 var(--s4); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:active { color: var(--accent-press); }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.86em;
+    background: var(--paper-deep);
+    padding: 1px 4px;
+  }
+
+  ul { margin: 0; padding-left: var(--s4); list-style: none; }
+  li { margin-bottom: var(--s3); position: relative; }
+  li:last-child { margin-bottom: 0; }
+  li::before {
+    content: "—";
+    position: absolute;
+    left: calc(var(--s4) * -1);
+    color: var(--rule-mid);
+  }
+  .note { color: var(--muted); font-size: 14px; }
+
+
+
+  /* --- Users: three accounts across the page -------------------- */
+  .people { display: grid; gap: var(--s5); margin-top: var(--s4); }
+  @media (min-width: 900px) {
+    .people { grid-template-columns: repeat(3, 1fr); gap: var(--s6); }
+    .people > div + div { border-left: 1px solid var(--rule); padding-left: var(--s6); }
+  }
+  .people h3 { color: var(--ink); }
+  .people p { font-size: 15px; }
+
+  /* --- Roadmap: five weeks across the page ---------------------- */
+  .weeks { display: grid; gap: var(--s5); }
+  @media (min-width: 900px) {
+    .weeks { grid-template-columns: repeat(5, 1fr); gap: var(--s5); }
+    .weeks > div + div { border-left: 1px solid var(--rule); padding-left: var(--s5); }
+  }
+  .weeks .theme {
+    display: block;
+    font-family: var(--serif);
+    font-size: 15px;
+    font-weight: 600;
+    font-style: italic;
+    letter-spacing: 0;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .weeks > div:hover .theme { color: var(--accent); }
+  .weeks .theme { transition: color var(--dur) var(--ease); }
+
+  .weeks .date {
+    font-family: var(--grotesk);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0 0 var(--s2);
+    padding-bottom: var(--s2);
+    border-bottom: 2px solid var(--ink);
+  }
+  .weeks p:last-child { font-size: 15px; }
+
+  /* --- Stack: label above line, so it fits a narrow column ------ */
+  dl { margin: 0; }
+  dl div { padding: var(--s3) 0; border-top: 1px solid var(--rule); }
+  dl div:last-child { border-bottom: 1px solid var(--rule); }
+  dt { font-family: var(--grotesk); font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  dd { margin: 0; font-size: 15px; color: var(--muted); }
+
+
+
+  footer {
+    margin-top: var(--s7);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--rule);
+    font-family: var(--grotesk);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ===============================================================
+     MOTION
+
+     Four things move, and each one is doing a job rather than
+     decorating: the masthead chart draws itself, sections arrive as
+     you reach them, rows answer the cursor, and the unfilled
+     placeholders ask to be noticed.
+
+     Everything here is additive. Without JavaScript the page renders
+     complete and static, because .reveal only hides content once the
+     script has confirmed it can show it again (html.js-motion).
+     =============================================================== */
+
+  /* --- 1. The masthead chart draws itself on load ---------------- */
+  /* Five layers, back to front: gridlines, hatched area, news-day
+     marks, volume, price. The price line draws across; everything
+     behind it fades in as it passes. */
+  .chart { display: block; width: 100%; height: 72px; overflow: visible; }
+  @media (min-width: 900px) { .chart { height: 104px; } }
+
+  .chart .grid line {
+    stroke: var(--rule);
+    stroke-width: 1;
+    opacity: 0;
+    animation: fade-in 700ms var(--ease) 150ms forwards;
+  }
+
+  .chart .area {
+    opacity: 0;
+    animation: fade-in 1.4s var(--ease) 700ms forwards;
+  }
+
+  .chart .volume {
+    fill: none;
+    stroke: var(--rule-mid);
+    stroke-width: 1.4;
+    opacity: 0;
+    animation: fade-in 1.2s var(--ease) 900ms forwards;
+  }
+
+  .chart .line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    /* pathLength="1200" normalises the real geometry, so the dash
+       maths holds however many points the series has. */
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+    animation: draw 2.6s var(--ease) 0.25s forwards;
+  }
+
+  .chart .day {
+    stroke: var(--ink);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    opacity: 0;
+    animation: fade-in 500ms var(--ease) forwards;
+  }
+  /* Each mark appears as the line reaches it: the jumps sit at 38%,
+     70% and 86% of the series, against a 2.6s draw starting at 0.25s. */
+  .chart .day:nth-of-type(1) { animation-delay: 1.25s; }
+  .chart .day:nth-of-type(2) { animation-delay: 2.05s; }
+  .chart .day:nth-of-type(3) { animation-delay: 2.5s; }
+
+  @keyframes draw    { to { stroke-dashoffset: 0; } }
+  @keyframes fade-in { to { opacity: 1; } }
+
+  /* --- 2. Sections arrive as you reach them ---------------------- */
+  html.js-motion .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  html.js-motion .reveal.in {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity   var(--dur-slow) var(--ease),
+      transform var(--dur-slow) var(--ease);
+  }
+  /* Columns in a row stagger left to right, so a row reads as a row. */
+  html.js-motion .reveal.in.d1 { transition-delay: 80ms; }
+  html.js-motion .reveal.in.d2 { transition-delay: 160ms; }
+
+  /* The rule under a section heading draws across when it arrives. */
+  h2 { position: relative; }
+  h2::after {
+    content: "";
+    position: absolute;
+    left: 0; bottom: -1px;
+    height: 1px;
+    width: 100%;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  html.js-motion .reveal.in h2::after {
+    transform: scaleX(1);
+    transition: transform 700ms var(--ease) 180ms;
+  }
+
+  /* --- 3. Rows answer the cursor -------------------------------- */
+  /* A stack row: the hairline thickens into the accent at its left
+     edge, the label steps toward it, the muted description comes up
+     to full ink. No background wash, no shadow. */
+  dl div {
+    position: relative;
+    transition: background var(--dur) var(--ease);
+  }
+  dl div::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 2px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform var(--dur) var(--ease);
+  }
+  dl div:hover::before { transform: scaleY(1); }
+  dl div:hover { background: var(--surface); }
+  dl dt { transition: transform var(--dur) var(--ease); }
+  dl div:hover dt { transform: translateX(6px); }
+  dl dd {
+    transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+  dl div:hover dd { color: var(--ink); transform: translateX(6px); }
+
+  /* A roadmap week: the 2px rule under the date is already ink, so
+     it goes accent and the date lifts a little. */
+  .weeks > div { transition: transform var(--dur) var(--ease); }
+  .weeks > div:hover { transform: translateY(-3px); }
+  .weeks .date { transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease); }
+  .weeks > div:hover .date { border-bottom-color: var(--accent); color: var(--accent); }
+
+  /* A criterion: its em-dash marker goes accent and steps aside. */
+  li::before { transition: color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+  li:hover::before { color: var(--accent); transform: translateX(-3px); }
+
+
+  /* Links: the underline arrives rather than being there. */
+  a {
+    text-decoration: none;
+    background-image: linear-gradient(var(--accent), var(--accent));
+    background-size: 0% 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size var(--dur) var(--ease);
+  }
+  a:hover, a:focus-visible { background-size: 100% 1px; }
+
+
+  /* --- Reduced motion: none of the above ------------------------ */
+  @media (prefers-reduced-motion: reduce) {
+    html.js-motion .reveal { opacity: 1; transform: none; }
+    .chart .line { stroke-dashoffset: 0; animation: none; }
+    .chart .day, .chart .area, .chart .volume, .chart .grid line {
+      opacity: 1; animation: none;
+    }
+    h2::after { transform: scaleX(1); }
+    *, *::before, *::after {
+      transition-duration: 1ms !important;
+      animation-duration: 1ms !important;
+    }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Archivo:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<main class="shell">
+
+  <header class="mast">
+    <p class="kicker">Project Proposal · Design, Build, Ship · MPCS 51238 · Autumn 2026</p>
+    <h1>Debate</h1>
+    <p class="standfirst">
+      For student and early-career investors looking at one company. When a stock moves, what
+      you can usually find out is that there was an earnings miss, rather than which arguments
+      about the company are still unsettled and still affecting the price.
+    </p>
+
+    <!-- A year of daily closes with three marked news days: the shape of the
+         thing this is about. Generated as geometric Brownian motion with
+         volatility clustering and three jump days, so it reads as a real
+         series rather than a drawn squiggle; the shading is hatched rather
+         than solid, which is how a newspaper would have printed it.
+         Decorative, so hidden from assistive technology. -->
+    <svg class="chart" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="7" stroke="#a8231d" stroke-width="1.1" opacity="0.2"/>
+        </pattern>
+      </defs>
+      <g class="grid">
+        <line x1="0" y1="20" x2="1000" y2="20"/>
+        <line x1="0" y1="40" x2="1000" y2="40"/>
+        <line x1="0" y1="60" x2="1000" y2="60"/>
+        <line x1="0" y1="80" x2="1000" y2="80"/>
+      </g>
+      <path class="area" fill="url(#hatch)" d="M0.0,65.3 L4.0,57.9 L8.0,58.5 L12.0,54.4 L15.9,55.3 L19.9,54.8 L23.9,55.6 L27.9,53.1 L31.9,50.8 L35.9,50.0 L39.8,49.3 L43.8,49.1 L47.8,48.4 L51.8,45.6 L55.8,47.1 L59.8,46.8 L63.7,43.8 L67.7,41.6 L71.7,42.5 L75.7,44.8 L79.7,39.4 L83.7,40.7 L87.6,40.7 L91.6,38.4 L95.6,40.9 L99.6,38.4 L103.6,41.7 L107.6,35.1 L111.6,32.9 L115.5,29.1 L119.5,31.1 L123.5,33.7 L127.5,35.6 L131.5,36.5 L135.5,35.6 L139.4,37.5 L143.4,36.7 L147.4,39.2 L151.4,42.1 L155.4,41.1 L159.4,39.0 L163.3,35.3 L167.3,35.7 L171.3,35.5 L175.3,30.7 L179.3,28.6 L183.3,28.7 L187.3,29.1 L191.2,26.1 L195.2,24.7 L199.2,24.6 L203.2,20.4 L207.2,21.7 L211.2,23.6 L215.1,17.2 L219.1,18.7 L223.1,13.1 L227.1,11.1 L231.1,9.8 L235.1,10.3 L239.0,10.6 L243.0,10.6 L247.0,12.9 L251.0,13.2 L255.0,13.0 L259.0,11.0 L262.9,11.0 L266.9,12.0 L270.9,13.3 L274.9,11.5 L278.9,8.9 L282.9,9.2 L286.9,9.7 L290.8,9.5 L294.8,8.8 L298.8,11.0 L302.8,12.6 L306.8,11.1 L310.8,11.2 L314.7,11.1 L318.7,10.7 L322.7,11.8 L326.7,12.5 L330.7,14.8 L334.7,12.0 L338.6,12.8 L342.6,13.3 L346.6,14.9 L350.6,13.8 L354.6,16.2 L358.6,17.8 L362.5,15.9 L366.5,17.8 L370.5,19.3 L374.5,18.7 L378.5,20.2 L382.5,36.8 L386.5,38.7 L390.4,40.0 L394.4,41.4 L398.4,43.6 L402.4,44.1 L406.4,45.8 L410.4,42.4 L414.3,40.4 L418.3,43.7 L422.3,44.1 L426.3,44.3 L430.3,42.1 L434.3,43.4 L438.2,49.1 L442.2,52.6 L446.2,53.0 L450.2,56.2 L454.2,57.2 L458.2,55.1 L462.2,60.8 L466.1,60.7 L470.1,62.6 L474.1,63.7 L478.1,59.8 L482.1,58.7 L486.1,62.7 L490.0,63.2 L494.0,59.8 L498.0,56.0 L502.0,53.3 L506.0,51.5 L510.0,47.1 L513.9,47.5 L517.9,49.6 L521.9,49.9 L525.9,52.7 L529.9,53.2 L533.9,53.7 L537.8,52.4 L541.8,52.5 L545.8,53.2 L549.8,56.6 L553.8,58.3 L557.8,58.8 L561.8,54.7 L565.7,56.5 L569.7,59.1 L573.7,60.1 L577.7,63.6 L581.7,65.1 L585.7,67.5 L589.6,67.7 L593.6,67.8 L597.6,71.2 L601.6,69.1 L605.6,66.7 L609.6,64.6 L613.5,64.6 L617.5,69.0 L621.5,71.2 L625.5,66.6 L629.5,61.6 L633.5,62.8 L637.5,58.3 L641.4,58.2 L645.4,57.2 L649.4,56.4 L653.4,56.9 L657.4,57.2 L661.4,57.7 L665.3,54.4 L669.3,53.3 L673.3,51.4 L677.3,55.0 L681.3,51.6 L685.3,50.5 L689.2,49.8 L693.2,49.2 L697.2,49.9 L701.2,47.0 L705.2,50.9 L709.2,49.0 L713.1,55.0 L717.1,57.6 L721.1,55.0 L725.1,55.6 L729.1,57.2 L733.1,58.0 L737.1,56.1 L741.0,55.7 L745.0,56.1 L749.0,56.6 L753.0,56.9 L757.0,56.6 L761.0,57.8 L764.9,59.8 L768.9,59.2 L772.9,58.6 L776.9,57.8 L780.9,55.6 L784.9,54.9 L788.8,55.8 L792.8,55.9 L796.8,55.9 L800.8,57.0 L804.8,59.2 L808.8,59.7 L812.7,59.3 L816.7,61.6 L820.7,62.5 L824.7,62.3 L828.7,59.9 L832.7,61.8 L836.7,63.1 L840.6,62.6 L844.6,63.8 L848.6,64.3 L852.6,62.9 L856.6,60.1 L860.6,47.7 L864.5,34.2 L868.5,26.8 L872.5,30.2 L876.5,30.9 L880.5,32.1 L884.5,32.1 L888.4,31.7 L892.4,36.1 L896.4,38.7 L900.4,38.6 L904.4,37.0 L908.4,36.6 L912.4,35.4 L916.3,35.3 L920.3,35.3 L924.3,33.8 L928.3,33.2 L932.3,31.6 L936.3,32.5 L940.2,30.6 L944.2,27.9 L948.2,27.1 L952.2,29.2 L956.2,29.2 L960.2,29.9 L964.1,27.3 L968.1,25.3 L972.1,24.4 L976.1,23.7 L980.1,24.0 L984.1,22.3 L988.0,22.6 L992.0,20.2 L996.0,20.4 L1000.0,15.4 L1000,80 L0,80 Z"/>
+      <line class="day" x1="382.5" y1="0" x2="382.5" y2="120" vector-effect="non-scaling-stroke"/>
+      <line class="day" x1="701.2" y1="0" x2="701.2" y2="120" vector-effect="non-scaling-stroke"/>
+      <line class="day" x1="860.6" y1="0" x2="860.6" y2="120" vector-effect="non-scaling-stroke"/>
+      <path class="volume" vector-effect="non-scaling-stroke" d="M0.0,120 L0.0,118.7 M4.0,120 L4.0,112.0 M8.0,120 L8.0,118.3 M12.0,120 L12.0,112.2 M15.9,120 L15.9,117.9 M19.9,120 L19.9,118.8 M23.9,120 L23.9,118.2 M27.9,120 L27.9,117.0 M31.9,120 L31.9,114.7 M35.9,120 L35.9,117.8 M39.8,120 L39.8,118.1 M43.8,120 L43.8,119.3 M47.8,120 L47.8,118.1 M51.8,120 L51.8,115.2 M55.8,120 L55.8,116.2 M59.8,120 L59.8,119.2 M63.7,120 L63.7,114.0 M67.7,120 L67.7,115.0 M71.7,120 L71.7,118.4 M75.7,120 L75.7,116.7 M79.7,120 L79.7,113.0 M83.7,120 L83.7,118.0 M87.6,120 L87.6,119.5 M91.6,120 L91.6,116.1 M95.6,120 L95.6,116.9 M99.6,120 L99.6,116.2 M103.6,120 L103.6,112.0 M107.6,120 L107.6,113.0 M111.6,120 L111.6,115.9 M115.5,120 L115.5,113.8 M119.5,120 L119.5,117.0 M123.5,120 L123.5,113.7 M127.5,120 L127.5,115.3 M131.5,120 L131.5,118.0 M135.5,120 L135.5,117.6 M139.4,120 L139.4,115.2 M143.4,120 L143.4,118.6 M147.4,120 L147.4,116.9 M151.4,120 L151.4,114.6 M155.4,120 L155.4,117.3 M159.4,120 L159.4,115.2 M163.3,120 L163.3,112.8 M167.3,120 L167.3,118.6 M171.3,120 L171.3,119.3 M175.3,120 L175.3,114.4 M179.3,120 L179.3,115.8 M183.3,120 L183.3,119.4 M187.3,120 L187.3,119.2 M191.2,120 L191.2,114.9 M195.2,120 L195.2,116.4 M199.2,120 L199.2,119.4 M203.2,120 L203.2,110.2 M207.2,120 L207.2,116.4 M211.2,120 L211.2,117.0 M215.1,120 L215.1,106.4 M219.1,120 L219.1,116.0 M223.1,120 L223.1,113.3 M227.1,120 L227.1,115.6 M231.1,120 L231.1,117.1 M235.1,120 L235.1,119.0 M239.0,120 L239.0,118.8 M243.0,120 L243.0,119.5 M247.0,120 L247.0,115.0 M251.0,120 L251.0,119.1 M255.0,120 L255.0,119.2 M259.0,120 L259.0,116.4 M262.9,120 L262.9,119.5 M266.9,120 L266.9,118.2 M270.9,120 L270.9,117.5 M274.9,120 L274.9,117.8 M278.9,120 L278.9,115.5 M282.9,120 L282.9,119.0 M286.9,120 L286.9,119.1 M290.8,120 L290.8,119.1 M294.8,120 L294.8,118.5 M298.8,120 L298.8,115.3 M302.8,120 L302.8,116.4 M306.8,120 L306.8,117.9 M310.8,120 L310.8,119.4 M314.7,120 L314.7,119.5 M318.7,120 L318.7,119.0 M322.7,120 L322.7,117.8 M326.7,120 L326.7,118.7 M330.7,120 L330.7,114.8 M334.7,120 L334.7,112.8 M338.6,120 L338.6,118.6 M342.6,120 L342.6,118.4 M346.6,120 L346.6,116.3 M350.6,120 L350.6,118.0 M354.6,120 L354.6,114.8 M358.6,120 L358.6,117.2 M362.5,120 L362.5,116.3 M366.5,120 L366.5,116.1 M370.5,120 L370.5,117.0 M374.5,120 L374.5,118.7 M378.5,120 L378.5,117.2 M382.5,120 L382.5,92.7 M386.5,120 L386.5,117.0 M390.4,120 L390.4,116.6 M394.4,120 L394.4,117.2 M398.4,120 L398.4,116.6 M402.4,120 L402.4,118.6 M406.4,120 L406.4,117.9 M410.4,120 L410.4,112.6 M414.3,120 L414.3,117.5 M418.3,120 L418.3,114.6 M422.3,120 L422.3,119.2 M426.3,120 L426.3,119.1 M430.3,120 L430.3,115.4 M434.3,120 L434.3,118.0 M438.2,120 L438.2,107.9 M442.2,120 L442.2,113.3 M446.2,120 L446.2,119.0 M450.2,120 L450.2,116.1 M454.2,120 L454.2,118.1 M458.2,120 L458.2,116.7 M462.2,120 L462.2,107.1 M466.1,120 L466.1,119.5 M470.1,120 L470.1,117.7 M474.1,120 L474.1,118.1 M478.1,120 L478.1,115.7 M482.1,120 L482.1,118.0 M486.1,120 L486.1,111.6 M490.0,120 L490.0,119.0 M494.0,120 L494.0,112.6 M498.0,120 L498.0,112.2 M502.0,120 L502.0,116.0 M506.0,120 L506.0,117.0 M510.0,120 L510.0,112.6 M513.9,120 L513.9,118.9 M517.9,120 L517.9,116.1 M521.9,120 L521.9,118.8 M525.9,120 L525.9,115.7 M529.9,120 L529.9,118.7 M533.9,120 L533.9,119.1 M537.8,120 L537.8,117.8 M541.8,120 L541.8,119.4 M545.8,120 L545.8,118.9 M549.8,120 L549.8,114.0 M553.8,120 L553.8,117.3 M557.8,120 L557.8,118.7 M561.8,120 L561.8,111.4 M565.7,120 L565.7,117.0 M569.7,120 L569.7,114.9 M573.7,120 L573.7,117.4 M577.7,120 L577.7,115.8 M581.7,120 L581.7,116.5 M585.7,120 L585.7,115.3 M589.6,120 L589.6,119.1 M593.6,120 L593.6,119.5 M597.6,120 L597.6,112.7 M601.6,120 L601.6,116.4 M605.6,120 L605.6,117.2 M609.6,120 L609.6,116.4 M613.5,120 L613.5,119.6 M617.5,120 L617.5,110.0 M621.5,120 L621.5,115.2 M625.5,120 L625.5,112.0 M629.5,120 L629.5,108.2 M633.5,120 L633.5,117.0 M637.5,120 L637.5,112.0 M641.4,120 L641.4,119.4 M645.4,120 L645.4,117.6 M649.4,120 L649.4,117.8 M653.4,120 L653.4,118.6 M657.4,120 L657.4,119.1 M661.4,120 L661.4,118.8 M665.3,120 L665.3,115.9 M669.3,120 L669.3,118.3 M673.3,120 L673.3,117.2 M677.3,120 L677.3,113.6 M681.3,120 L681.3,111.8 M685.3,120 L685.3,118.2 M689.2,120 L689.2,118.7 M693.2,120 L693.2,118.2 M697.2,120 L697.2,118.9 M701.2,120 L701.2,113.9 M705.2,120 L705.2,115.7 M709.2,120 L709.2,116.0 M713.1,120 L713.1,106.6 M717.1,120 L717.1,113.4 M721.1,120 L721.1,113.9 M725.1,120 L725.1,118.3 M729.1,120 L729.1,117.0 M733.1,120 L733.1,118.6 M737.1,120 L737.1,115.1 M741.0,120 L741.0,119.2 M745.0,120 L745.0,118.9 M749.0,120 L749.0,119.0 M753.0,120 L753.0,118.7 M757.0,120 L757.0,119.1 M761.0,120 L761.0,117.4 M764.9,120 L764.9,116.2 M768.9,120 L768.9,118.6 M772.9,120 L772.9,118.3 M776.9,120 L776.9,118.7 M780.9,120 L780.9,115.0 M784.9,120 L784.9,118.2 M788.8,120 L788.8,118.6 M792.8,120 L792.8,119.4 M796.8,120 L796.8,119.5 M800.8,120 L800.8,117.4 M804.8,120 L804.8,116.7 M808.8,120 L808.8,118.3 M812.7,120 L812.7,119.1 M816.7,120 L816.7,115.6 M820.7,120 L820.7,118.0 M824.7,120 L824.7,119.3 M828.7,120 L828.7,116.8 M832.7,120 L832.7,115.8 M836.7,120 L836.7,118.0 M840.6,120 L840.6,118.8 M844.6,120 L844.6,117.2 M848.6,120 L848.6,119.1 M852.6,120 L852.6,116.3 M856.6,120 L856.6,113.2 M860.6,120 L860.6,100.8 M864.5,120 L864.5,92.0 M868.5,120 L868.5,101.9 M872.5,120 L872.5,114.5 M876.5,120 L876.5,118.8 M880.5,120 L880.5,118.2 M884.5,120 L884.5,119.5 M888.4,120 L888.4,118.7 M892.4,120 L892.4,114.3 M896.4,120 L896.4,116.1 M900.4,120 L900.4,119.2 M904.4,120 L904.4,117.9 M908.4,120 L908.4,118.9 M912.4,120 L912.4,117.0 M916.3,120 L916.3,119.4 M920.3,120 L920.3,119.6 M924.3,120 L924.3,117.9 M928.3,120 L928.3,118.2 M932.3,120 L932.3,115.7 M936.3,120 L936.3,117.6 M940.2,120 L940.2,117.4 M944.2,120 L944.2,115.1 M948.2,120 L948.2,117.7 M952.2,120 L952.2,116.7 M956.2,120 L956.2,119.5 M960.2,120 L960.2,118.6 M964.1,120 L964.1,113.5 M968.1,120 L968.1,116.0 M972.1,120 L972.1,118.6 M976.1,120 L976.1,118.9 M980.1,120 L980.1,119.2 M984.1,120 L984.1,116.6 M988.0,120 L988.0,119.1 M992.0,120 L992.0,117.2 M996.0,120 L996.0,119.2 M1000.0,120 L1000.0,114.4"/>
+      <path class="line" pathLength="1200" vector-effect="non-scaling-stroke" d="M0.0,65.3 L4.0,57.9 L8.0,58.5 L12.0,54.4 L15.9,55.3 L19.9,54.8 L23.9,55.6 L27.9,53.1 L31.9,50.8 L35.9,50.0 L39.8,49.3 L43.8,49.1 L47.8,48.4 L51.8,45.6 L55.8,47.1 L59.8,46.8 L63.7,43.8 L67.7,41.6 L71.7,42.5 L75.7,44.8 L79.7,39.4 L83.7,40.7 L87.6,40.7 L91.6,38.4 L95.6,40.9 L99.6,38.4 L103.6,41.7 L107.6,35.1 L111.6,32.9 L115.5,29.1 L119.5,31.1 L123.5,33.7 L127.5,35.6 L131.5,36.5 L135.5,35.6 L139.4,37.5 L143.4,36.7 L147.4,39.2 L151.4,42.1 L155.4,41.1 L159.4,39.0 L163.3,35.3 L167.3,35.7 L171.3,35.5 L175.3,30.7 L179.3,28.6 L183.3,28.7 L187.3,29.1 L191.2,26.1 L195.2,24.7 L199.2,24.6 L203.2,20.4 L207.2,21.7 L211.2,23.6 L215.1,17.2 L219.1,18.7 L223.1,13.1 L227.1,11.1 L231.1,9.8 L235.1,10.3 L239.0,10.6 L243.0,10.6 L247.0,12.9 L251.0,13.2 L255.0,13.0 L259.0,11.0 L262.9,11.0 L266.9,12.0 L270.9,13.3 L274.9,11.5 L278.9,8.9 L282.9,9.2 L286.9,9.7 L290.8,9.5 L294.8,8.8 L298.8,11.0 L302.8,12.6 L306.8,11.1 L310.8,11.2 L314.7,11.1 L318.7,10.7 L322.7,11.8 L326.7,12.5 L330.7,14.8 L334.7,12.0 L338.6,12.8 L342.6,13.3 L346.6,14.9 L350.6,13.8 L354.6,16.2 L358.6,17.8 L362.5,15.9 L366.5,17.8 L370.5,19.3 L374.5,18.7 L378.5,20.2 L382.5,36.8 L386.5,38.7 L390.4,40.0 L394.4,41.4 L398.4,43.6 L402.4,44.1 L406.4,45.8 L410.4,42.4 L414.3,40.4 L418.3,43.7 L422.3,44.1 L426.3,44.3 L430.3,42.1 L434.3,43.4 L438.2,49.1 L442.2,52.6 L446.2,53.0 L450.2,56.2 L454.2,57.2 L458.2,55.1 L462.2,60.8 L466.1,60.7 L470.1,62.6 L474.1,63.7 L478.1,59.8 L482.1,58.7 L486.1,62.7 L490.0,63.2 L494.0,59.8 L498.0,56.0 L502.0,53.3 L506.0,51.5 L510.0,47.1 L513.9,47.5 L517.9,49.6 L521.9,49.9 L525.9,52.7 L529.9,53.2 L533.9,53.7 L537.8,52.4 L541.8,52.5 L545.8,53.2 L549.8,56.6 L553.8,58.3 L557.8,58.8 L561.8,54.7 L565.7,56.5 L569.7,59.1 L573.7,60.1 L577.7,63.6 L581.7,65.1 L585.7,67.5 L589.6,67.7 L593.6,67.8 L597.6,71.2 L601.6,69.1 L605.6,66.7 L609.6,64.6 L613.5,64.6 L617.5,69.0 L621.5,71.2 L625.5,66.6 L629.5,61.6 L633.5,62.8 L637.5,58.3 L641.4,58.2 L645.4,57.2 L649.4,56.4 L653.4,56.9 L657.4,57.2 L661.4,57.7 L665.3,54.4 L669.3,53.3 L673.3,51.4 L677.3,55.0 L681.3,51.6 L685.3,50.5 L689.2,49.8 L693.2,49.2 L697.2,49.9 L701.2,47.0 L705.2,50.9 L709.2,49.0 L713.1,55.0 L717.1,57.6 L721.1,55.0 L725.1,55.6 L729.1,57.2 L733.1,58.0 L737.1,56.1 L741.0,55.7 L745.0,56.1 L749.0,56.6 L753.0,56.9 L757.0,56.6 L761.0,57.8 L764.9,59.8 L768.9,59.2 L772.9,58.6 L776.9,57.8 L780.9,55.6 L784.9,54.9 L788.8,55.8 L792.8,55.9 L796.8,55.9 L800.8,57.0 L804.8,59.2 L808.8,59.7 L812.7,59.3 L816.7,61.6 L820.7,62.5 L824.7,62.3 L828.7,59.9 L832.7,61.8 L836.7,63.1 L840.6,62.6 L844.6,63.8 L848.6,64.3 L852.6,62.9 L856.6,60.1 L860.6,47.7 L864.5,34.2 L868.5,26.8 L872.5,30.2 L876.5,30.9 L880.5,32.1 L884.5,32.1 L888.4,31.7 L892.4,36.1 L896.4,38.7 L900.4,38.6 L904.4,37.0 L908.4,36.6 L912.4,35.4 L916.3,35.3 L920.3,35.3 L924.3,33.8 L928.3,33.2 L932.3,31.6 L936.3,32.5 L940.2,30.6 L944.2,27.9 L948.2,27.1 L952.2,29.2 L956.2,29.2 L960.2,29.9 L964.1,27.3 L968.1,25.3 L972.1,24.4 L976.1,23.7 L980.1,24.0 L984.1,22.3 L988.0,22.6 L992.0,20.2 L996.0,20.4 L1000.0,15.4"/>
+    </svg>
+  </header>
+
+  <div class="grid">
+
+    <section class="c6 reveal">
+      <h2>The problem</h2>
+      <p>
+        What I do now is look at the days a stock moved most and read the news from those days.
+        Usually it tells me there was an earnings miss, which doesn't explain very much. The
+        thing that actually mattered might be something like the useful life a company assumes
+        for its GPUs being shorter than the market had expected.
+      </p>
+      <p>
+        That kind of detail doesn't appear in headlines. It comes up in analyst questions on
+        earnings calls, and in the wording of 10-K risk factors, so those are what the product
+        reads.
+      </p>
+      <h3>What makes a debate worth showing</h3>
+      <ul>
+        <li><strong>Specific.</strong> “GPU useful-life assumptions,” not “margin pressure.”</li>
+        <li><strong>Unresolved.</strong> Not priced in 90–100% in one direction.</li>
+        <li><strong>Long-running.</strong> A debate from years ago can still weigh on the price.</li>
+      </ul>
+      <p style="margin-top:var(--s4)">
+        It should work in both directions. From a company, find the debates about it. From a
+        debate, find the companies it affects most. The second one is the half I want for myself:
+        I usually know what the argument is before I know which companies it actually lands on.
+      </p>
+    </section>
+
+
+    <section class="c6 ruled reveal d1">
+      <h2>Focus: AI</h2>
+      <p>
+        The app calls a model itself, with tools, and I check how well it works.
+      </p>
+      <p>
+        I picked AI because the output is the product. If a debate comes back vague, or turns
+        out to be something everyone already agrees on, no other part of the app can tell me
+        that. I have built sign-in, a database and external data sources into earlier
+        assignments. I have not written prompts, given a model tools, or tried to measure
+        whether its answers are any good.
+      </p>
+      <p>
+        In practice that means the agent decides which sources to pull rather than following a
+        fixed order, and what comes back is structured: a bull claim, a bear claim, the quotes
+        behind each one, and how much the model thinks is already priced in. Because it is
+        structured I can score it against a rubric for being specific, two-sided and material,
+        across about 20 outputs.
+      </p>
+      <p class="note">
+        The priced-in figure is the model's opinion rather than a measurement, and it is shown
+        with its reasoning. It is also the one part the rubric cannot check.
+      </p>
+    </section>
+
+    <section class="c12 reveal">
+      <h2>Users</h2>
+      <div class="people">
+        <div>
+          <h3>My dad — a senior investment professional</h3>
+          <p>
+            When a stock he follows moves and he doesn't know why, he calls the analyst and the
+            trading desk, and if there's no clear reason he puts it down to trading flow. To
+            defend a position, his team writes a memo, builds a model with a few scenarios and
+            sets out what they think the market is missing. He reads filings himself. What he
+            complained about was that some data, like segment margins, is hard to find because
+            companies don't break it out clearly, and that sell-side reports tend to repeat
+            each other.
+          </p>
+        </div>
+        <div>
+          <h3>My brother — a casual trader</h3>
+          <p>
+            Gets his information from Reddit, Twitter, podcasts and YouTube, usually without
+            checking whether it is accurate, and has bought more of something because an
+            argument sounded reasonable. He doesn't read earnings calls or filings, only
+            summaries. What he said he couldn't find was a source that explains why a stock
+            moved without being overly positive or negative.
+          </p>
+        </div>
+        <div>
+          <h3>My roommate — a quant trader</h3>
+          <p>
+            Most of these questions didn't apply to him. He works with signals, risk limits and
+            backtests, and his firm processes transcripts and filings automatically rather than
+            having people read them. He distrusts arguments that sound convincing, because he
+            assumes they are already reflected in the price. He said his trading is detached
+            from fundamentals, and that it would be interesting to understand the names he
+            trades more personally.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="c12 reveal">
+      <h2>Roadmap</h2>
+      <div class="weeks">
+        <div>
+          <p class="date">Nov 10–13<span class="theme">The model and its tools</span></p>
+          <p>
+            Give the agent its sources — filings and earnings calls — and work on the prompt
+            until the debates it returns are specific and two-sided rather than vague.
+          </p>
+        </div>
+        <div>
+          <p class="date">Nov 13–17<span class="theme">v1</span></p>
+          <p>
+            The look-up itself. Type a company, get its debates back with both sides and the
+            quotes behind them, and sign in to use it. Score twenty outputs to see whether the
+            answers are any good. Due on the 17th.
+          </p>
+        </div>
+        <div>
+          <p class="date">Nov 17–24<span class="theme">The interface</span></p>
+          <p>
+            Build out the real thing. Debates you can read through rather than a list, both
+            sides against each other, the evidence underneath, and what the stock did on the
+            days each debate was in the news. Thanksgiving week, so work I can do in short
+            stretches.
+          </p>
+        </div>
+        <div>
+          <p class="date">Nov 24–28<span class="theme">The second direction</span></p>
+          <p>
+            Describe a view in your own words — that GPU useful life is too aggressive — and
+            get back the companies most exposed to it, ranked, with the same evidence. It finds
+            the candidates by searching the full text of SEC filings for the language a company
+            would use, then reads the ones that come back.
+          </p>
+        </div>
+        <div>
+          <p class="date">Nov 28–Dec 1<span class="theme">The fair</span></p>
+          <p>
+            Both directions working: a company to the debates about it, and a view to the
+            companies it touches, for any company that files with the SEC.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="c4 reveal">
+      <h2>In v1, Nov 17</h2>
+      <ul>
+        <li>Look up any public company. A dozen or so are kept ready so the first one is instant.</li>
+        <li>Three to five debates for each one, in order of how much they seem to matter.</li>
+        <li>Both sides of every debate, with the quote it came from and a link to the filing or call.</li>
+        <li>How much of it the model thinks is already priced in, and why it says so.</li>
+        <li>The days each debate was in the news, what the stock did on each, and how many days that is.</li>
+        <li>Sign in.</li>
+        <li>My own scoring of 20 outputs, to see whether the answers are any good.</li>
+      </ul>
+    </section>
+
+    <section class="c4 ruled reveal d1">
+      <h2>In v2, at the fair</h2>
+      <ul>
+        <li>Describe a view in plain English and get the companies most exposed to it, ranked.</li>
+        <li>How long each debate has been running, taken from five years of filings.</li>
+        <li>A chart of the stock around debate days, instead of a list of dates.</li>
+        <li>Any company that files with the SEC, in either direction.</li>
+      </ul>
+    </section>
+
+    <section class="c4 ruled reveal d2">
+      <h2>Stack</h2>
+      <dl>
+        <div><dt>Next.js 16</dt><dd>App Router and TypeScript, same as Weeks 2–4. Keys and model calls stay on the server.</dd></div>
+        <div><dt>Supabase</dt><dd>Postgres. Each company's filings and prices are stored once, so I can repeat a scoring run after changing the prompt and compare the two.</dd></div>
+        <div><dt>Clerk</dt><dd>Sign-in. I wired it to Supabase row-level security in Week 4.</dd></div>
+        <div><dt>Vercel</dt><dd>Hosting, free Hobby plan, same as the earlier assignments.</dd></div>
+        <div><dt>OpenAI API</dt><dd>Model calls and tool calling, on credits I already have. I need structured output, which a chat window doesn't give me.</dd></div>
+        <div><dt>SEC EDGAR</dt><dd>Free, 10 requests a second, every public company. Risk factors and management commentary go back years. Its full-text search also returns which companies' filings match a phrase, which is how a view gets turned into a list of companies.</dd></div>
+        <div><dt>Equibles</dt><dd>Earnings call transcripts, 100 a day on the free tier. The analyst questions are where arguments get stated plainly. The cap means transcripts are a bonus rather than a requirement: a company whose call isn't cached yet is still read from its filings.</dd></div>
+        <div><dt>Alpaca</dt><dd>Daily prices, free, every US listing back to 2016. Alpha Vantage's free key only gives 100 days, unadjusted, which gets returns wrong around a stock split.</dd></div>
+      </dl>
+    </section>
+
+    <section class="c6 reveal">
+      <h2>MCP servers</h2>
+      <dl>
+        <div><dt>Supabase</dt><dd>Already in my <code>.mcp.json</code>. Lets the agent read the database schema and run migrations while I build.</dd></div>
+        <div><dt>Equibles</dt><dd>Transcripts inside Claude Code, so I can read real analyst questions while working on the prompt.</dd></div>
+        <div><dt>Vercel</dt><dd>Build logs and errors in the terminal, which is where I would notice the data loading failing.</dd></div>
+        <div><dt>Chrome DevTools</dt><dd>Checking the page at phone and desktop widths, which I have done since Week 2.</dd></div>
+      </dl>
+    </section>
+
+    <section class="c6 ruled reveal d1">
+      <h2>CLIs</h2>
+      <dl>
+        <div><dt>claude</dt><dd>Claude Code, which is what I build with.</dd></div>
+        <div><dt>gh</dt><dd>Repository and pull requests.</dd></div>
+        <div><dt>vercel</dt><dd>Deploying from my own account, so the URL doesn't expire.</dd></div>
+        <div><dt>supabase</dt><dd>Database migrations, kept as SQL files in the repo as in Week 4.</dd></div>
+        <div><dt>npm / npx</dt><dd>Scripts, tests and typechecking. The build has to pass before I commit.</dd></div>
+      </dl>
+    </section>
+
+
+  </div>
+
+  <footer>
+    <p>Matthew Geiling · Design, Build, Ship · MPCS 51238 · Autumn 2026</p>
+  </footer>
+
+</main>
+
+<!-- The only script on the page: eighteen lines that reveal each section as
+     it comes into view. It opts in by adding .js-motion, so if it never runs
+     the page is simply static and complete rather than blank. Anyone who has
+     asked their system for less motion is left alone. -->
+<script>
+  (function () {
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || !('IntersectionObserver' in window)) return;
+
+    document.documentElement.classList.add('js-motion');
+
+    var seen = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('in');
+        seen.unobserve(entry.target);
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.1 });
+
+    document.querySelectorAll('.reveal').forEach(function (el) { seen.observe(el); });
+  })();
+</script>
+</body>
+</html>
