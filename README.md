@@ -11,6 +11,18 @@ are actually unresolved and still moving the price — not "earnings miss," but 
 the level of "the useful life assumed for a GPU fleet is shorter than the market was
 carrying."
 
+## Where the project went
+
+The proposal below is the submitted Week-9 document and is left as it was. The project it
+proposed has since widened from a single-ticker debate finder into a **personal investing
+interface**, with the debate finder as one surface inside it.
+
+| Directory | What it is |
+| --- | --- |
+| [`site/`](site) | The real app. Next.js, TypeScript, deployable to Vercel with Root Directory set to `site`. Dummy data for now. |
+| [`prototypes/`](prototypes) | Three clickable design directions that preceded it. `b-terminal.html` is the one taken forward. |
+| `index.html` | This proposal page, static, no build step. |
+
 ## What's here
 
 Two files. No framework, no build step, no dependencies.

@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Belt and braces: site/.gitignore already covers these, but a stray copy at
+# the root would otherwise be committed.
+node_modules/
+.next/
+.cache/
+.env
+.env*.local

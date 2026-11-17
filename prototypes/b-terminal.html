@@ -1,0 +1,875 @@
+<title>Conviction Terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+/* Persistent left rail, one column of panes. Dark-first, warm neutrals.
+   Colour is spent on data, not on chrome: the interface is near-greyscale and
+   the three validated data hues (blue, terracotta, teal) only appear in charts,
+   the exposure bar and the conviction dots. */
+:root{
+  --plane:#141413; --surf:#1c1c1a; --surf2:#232320; --surf3:#2b2b28;
+  --line:#292926; --line2:#383834;
+  --ink:#eceae4; --ink2:#c0bfb8; --muted:#918f88; --faint:#7e7c75;
+  --accent:#7fa9dd; --accent2:#a8c6ec; --accent-dim:rgba(127,169,221,.12);
+  --up-ink:#62b98d; --down-ink:#e0918c; --flat-ink:#918f88; --warn-ink:#cba35e;
+  --k1:#3987e5; --k2:#d95926; --k3:#199e70; --k0:#33332f;
+  --c-port:#3987e5; --c-sp:#d95926; --c-tech:#199e70;
+  --grid:#242421; --axis:#33332f; --axis-ink:#8b8982;
+  --chart-bg:#1c1c1a; --chart-ink:#d9d7d1; --spark:#7e7c75;
+  --cm1:#16304c; --cm2:#1c5cab; --cm3:#2a78d6; --cm4:#5598e7; --cm5:#9ec5f4;
+  --cmf1:#d7e4f3; --cmf2:#ffffff; --cmf3:#ffffff; --cmf4:#10243a; --cmf5:#10243a;
+  --shadow:0 18px 48px rgba(0,0,0,.46);
+  --sans:"DM Sans",-apple-system,"Segoe UI",sans-serif;
+  --mono:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --plane:#f2f1ec; --surf:#fbfaf6; --surf2:#f4f3ee; --surf3:#eae8e1;
+  --line:#e4e2da; --line2:#d2cfc5;
+  --ink:#1f1f1d; --ink2:#4c4b46; --muted:#73726b; --faint:#86847c;
+  --accent:#2f6aa8; --accent2:#24527f; --accent-dim:rgba(47,106,168,.08);
+  --up-ink:#2a7a52; --down-ink:#ad4b46; --flat-ink:#73726b; --warn-ink:#8a6a2a;
+  --k1:#2a78d6; --k2:#eb6834; --k3:#1baf7a; --k0:#dcd9d0;
+  --c-port:#2a78d6; --c-sp:#eb6834; --c-tech:#1baf7a;
+  --grid:#edebe4; --axis:#dcd9d0; --axis-ink:#7f7d76;
+  --chart-bg:#fbfaf6; --chart-ink:#3a3935; --spark:#9b998f;
+  --cm1:#e2edfc; --cm2:#b7d3f6; --cm3:#86b6ef; --cm4:#3987e5; --cm5:#1c5cab;
+  --cmf1:#1c2b3a; --cmf2:#16304c; --cmf3:#10243a; --cmf4:#ffffff; --cmf5:#ffffff;
+  --shadow:0 14px 36px rgba(40,36,28,.12);
+  color-scheme:light;
+}}
+:root[data-theme="light"]{
+  --plane:#f2f1ec; --surf:#fbfaf6; --surf2:#f4f3ee; --surf3:#eae8e1;
+  --line:#e4e2da; --line2:#d2cfc5;
+  --ink:#1f1f1d; --ink2:#4c4b46; --muted:#73726b; --faint:#86847c;
+  --accent:#2f6aa8; --accent2:#24527f; --accent-dim:rgba(47,106,168,.08);
+  --up-ink:#2a7a52; --down-ink:#ad4b46; --flat-ink:#73726b; --warn-ink:#8a6a2a;
+  --k1:#2a78d6; --k2:#eb6834; --k3:#1baf7a; --k0:#dcd9d0;
+  --c-port:#2a78d6; --c-sp:#eb6834; --c-tech:#1baf7a;
+  --grid:#edebe4; --axis:#dcd9d0; --axis-ink:#7f7d76;
+  --chart-bg:#fbfaf6; --chart-ink:#3a3935; --spark:#9b998f;
+  --cm1:#e2edfc; --cm2:#b7d3f6; --cm3:#86b6ef; --cm4:#3987e5; --cm5:#1c5cab;
+  --cmf1:#1c2b3a; --cmf2:#16304c; --cmf3:#10243a; --cmf4:#ffffff; --cmf5:#ffffff;
+  --shadow:0 14px 36px rgba(40,36,28,.12);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--plane);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;letter-spacing:.002em}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--plane);z-index:30}
+img{max-width:100%}
+a{color:var(--accent);text-decoration:none}
+a:hover{color:var(--accent2);text-decoration:underline;text-underline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.m{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up-ink)} .down{color:var(--down-ink)} .flat{color:var(--flat-ink)}
+
+/* shell */
+.app{display:grid;grid-template-columns:206px minmax(0,1fr);min-height:100%}
+.rail{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;max-height:100vh;overflow:auto;
+  padding:0 14px 20px;padding-left:max(14px,env(safe-area-inset-left,0px))}
+.brand{padding:22px 10px 18px}
+.brand b{display:block;font-size:16px;font-weight:600;letter-spacing:-.012em}
+.brand span{display:block;font-size:12.5px;color:var(--muted);margin-top:1px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:var(--muted);
+  font-family:var(--sans);font-size:14px;padding:9px 10px;border-radius:8px;cursor:pointer}
+.nav button:hover{background:var(--surf2);color:var(--ink)}
+.nav button[aria-current="page"]{background:var(--surf);color:var(--ink);font-weight:500}
+.nav button[aria-current="page"] .ic{color:var(--accent)}
+.nav .ic{width:15px;height:15px;flex:none;opacity:.85}
+.main{min-width:0;padding-left:18px;padding-right:max(18px,env(safe-area-inset-right,0px));padding-bottom:48px}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;max-height:none;padding-right:max(14px,env(safe-area-inset-right,0px))}
+  .brand{padding:18px 2px 12px}
+  .nav{flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{white-space:nowrap}
+  .main{padding-left:max(18px,env(safe-area-inset-left,0px))}
+}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--plane);
+  display:flex;align-items:center;gap:10px;padding:16px 0 14px;margin-bottom:4px}
+.page{font-size:19px;font-weight:600;letter-spacing:-.016em;margin:0;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note{font-size:12.5px;color:var(--faint)}
+@media (max-width:640px){.note{display:none}}
+.kbtn{display:inline-flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--line);color:var(--muted);
+  font-family:var(--sans);font-size:13px;padding:7px 11px;border-radius:8px;cursor:pointer}
+.kbtn:hover{border-color:var(--line2);color:var(--ink)}
+.kbtn kbd{font-family:var(--mono);font-size:11px;color:var(--faint)}
+@media (max-width:520px){.kbtn kbd{display:none}}
+.themeseg{display:inline-flex;background:var(--surf);border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.themeseg button{background:none;border:0;color:var(--faint);padding:7px 9px;cursor:pointer;display:grid;place-items:center;line-height:0}
+.themeseg button:hover{color:var(--ink);background:var(--surf2)}
+.themeseg button[aria-pressed="true"]{background:var(--surf2);color:var(--ink)}
+.themeseg svg{width:14px;height:14px}
+
+/* panes */
+.grid{display:grid;gap:16px}
+@media (min-width:1120px){.grid.c2{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}}
+.pane{background:var(--surf);border:1px solid var(--line);border-radius:12px;min-width:0}
+.pane>header{display:flex;align-items:baseline;gap:12px;padding:14px 18px 12px;flex-wrap:wrap}
+.pane>header h2{font-size:14.5px;font-weight:600;margin:0;letter-spacing:-.008em;flex:1;min-width:0}
+.pane>header .hint{font-size:12.5px;color:var(--faint)}
+.pad{padding:4px 18px 18px}
+.pad-b{padding:14px 18px 16px}
+h3.ph{font-size:14px;font-weight:600;margin:0 0 8px;letter-spacing:-.008em}
+p{margin:0 0 10px;max-width:70ch}
+p:last-child{margin-bottom:0}
+.sub{color:var(--ink2)}
+.fine{font-size:12.5px;color:var(--muted);line-height:1.55}
+.lbl{font-size:12.5px;color:var(--muted)}
+.rule{border:0;border-top:1px solid var(--line);margin:0}
+.foot{margin:30px 0 0;font-size:12.5px;color:var(--faint);max-width:78ch;line-height:1.6}
+
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(156px,1fr));gap:18px 28px;
+  background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:18px}
+.tile .k{font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.tile .v{font-size:25px;font-weight:500;letter-spacing:-.022em;line-height:1.2;font-variant-numeric:tabular-nums}
+.tile .v.sm{font-size:19px;letter-spacing:-.014em}
+.tile .d{font-size:12.5px;margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* chart */
+.ctl{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--surf2);border-radius:8px;padding:2px}
+.seg button{background:none;border:0;color:var(--muted);font-family:var(--sans);font-size:12.5px;
+  padding:4px 10px;border-radius:6px;cursor:pointer}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--surf);color:var(--ink);font-weight:500}
+.ov{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.ov label{display:inline-flex;gap:7px;align-items:center;cursor:pointer}
+.ov input{accent-color:var(--accent);width:14px;height:14px;margin:0}
+.chart{position:relative;width:100%}
+.chart-svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px}
+.lg{display:inline-flex;align-items:center;gap:7px}
+.lg i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.chart-tip{position:absolute;background:var(--surf);border:1px solid var(--line2);border-radius:9px;padding:9px 11px;
+  font-size:12.5px;min-width:162px;pointer-events:none;z-index:4;box-shadow:var(--shadow)}
+.tip-h{font-size:12px;color:var(--muted);margin-bottom:5px}
+.tip-r{display:flex;align-items:center;gap:8px;padding:1px 0}
+.tip-r i{width:8px;height:8px;border-radius:50%;flex:none}
+.tip-r span{flex:1;color:var(--ink2)}
+.tip-r b{font-weight:500;font-variant-numeric:tabular-nums}
+
+/* tables */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th,td{text-align:right;padding:10px 12px;white-space:nowrap}
+td{border-top:1px solid var(--line)}
+th{font-size:12.5px;color:var(--muted);font-weight:400;padding-bottom:6px}
+th:first-child,td:first-child{text-align:left;padding-left:18px}
+th:last-child,td:last-child{padding-right:18px}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.tk{font-family:var(--mono);font-size:13px;font-weight:500}
+.co{color:var(--muted);font-size:12.5px;display:block;line-height:1.35}
+.un{color:var(--muted);font-family:var(--sans);font-size:12px;display:block;line-height:1.35}
+.spark{display:block}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--surf2)}
+
+/* conviction dots */
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2);white-space:nowrap}
+.tag i{width:7px;height:7px;border-radius:50%;flex:none;background:var(--k0)}
+.tag.k1 i{background:var(--k1)} .tag.k2 i{background:var(--k2)} .tag.k3 i{background:var(--k3)}
+.tag.none{color:var(--muted)}
+.tag.none i{background:none;box-shadow:inset 0 0 0 1.5px var(--line2)}
+.tag+.tag{margin-left:14px}
+.tags{display:flex;gap:14px;flex-wrap:wrap}
+
+/* read rows */
+.rr{display:grid;grid-template-columns:84px minmax(0,1fr);gap:2px 14px;padding:14px 18px;border-top:1px solid var(--line)}
+.rr .d{font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
+.rr .h{font-weight:500;font-size:14px}
+.rr .b{color:var(--ink2);font-size:13px;margin:0}
+.rr .t{font-size:12.5px;color:var(--faint);margin-top:4px}
+
+/* flagged / list buttons */
+.fl{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:14px 18px;
+  cursor:pointer;color:inherit;font-family:inherit;font-size:inherit}
+.fl:hover{background:var(--surf2)}
+.flh{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap}
+.kind{font-size:12.5px;font-weight:500}
+.kind.buy{color:var(--up-ink)} .kind.add{color:var(--accent)}
+.kind.trim{color:var(--down-ink)} .kind.decide{color:var(--warn-ink)}
+.fl .why{color:var(--ink2);font-size:13px;margin:0}
+.fl .mv{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fl .mv.r{margin-left:auto}
+
+/* master / detail */
+.md{display:grid;gap:16px}
+@media (min-width:1040px){.md{grid-template-columns:minmax(0,318px) minmax(0,1fr);align-items:start}
+  .md>.pane:first-child{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}}
+.li{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);
+  padding:13px 18px;cursor:pointer;color:inherit;font-family:inherit;font-size:inherit}
+.li:hover{background:var(--surf2)}
+.li[aria-current="true"]{background:var(--surf2)}
+.li[aria-current="true"] .t{color:var(--ink)}
+.li .t{font-weight:500;font-size:13.5px;line-height:1.4;margin-bottom:5px;color:var(--ink2)}
+.li .m2{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.bar2{height:3px;background:var(--surf3);border-radius:3px;margin-top:8px;overflow:hidden}
+.bar2 i{display:block;height:100%;border-radius:3px}
+
+/* exposure */
+.xbar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surf3)}
+.xbar div+div{margin-left:2px}
+.xlegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 24px;margin-top:16px}
+.xrow{display:flex;align-items:center;gap:9px;font-size:13px}
+.xrow i{width:8px;height:8px;border-radius:50%;flex:none}
+.xrow .lbl{flex:1;color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.xrow .v{font-variant-numeric:tabular-nums;color:var(--ink)}
+.cm{border-collapse:separate;border-spacing:3px;min-width:340px}
+.cm th,.cm td{border:0;padding:0;background:none}
+.cm th{font-family:var(--mono);font-size:11.5px;color:var(--muted);font-weight:400;padding-bottom:5px}
+.cm td.h{text-align:right;font-family:var(--mono);font-size:12px;color:var(--ink2);padding-right:9px}
+.cm td.c{width:46px;height:28px;text-align:center;font-family:var(--mono);font-size:11.5px;border-radius:6px}
+.cm td.c.b1{background:var(--cm1);color:var(--cmf1)}
+.cm td.c.b2{background:var(--cm2);color:var(--cmf2)}
+.cm td.c.b3{background:var(--cm3);color:var(--cmf3)}
+.cm td.c.b4{background:var(--cm4);color:var(--cmf4)}
+.cm td.c.b5{background:var(--cm5);color:var(--cmf5)}
+
+/* detail bits */
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px 28px;padding:16px 18px}
+.kv .k{font-size:12.5px;color:var(--muted);margin-bottom:2px}
+.kv .v{font-size:18px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.012em}
+.kv .nt{font-size:12px;color:var(--faint);margin-top:2px}
+.dl{display:grid;grid-template-columns:124px minmax(0,1fr);gap:9px 18px;margin:0}
+.dl dt{font-size:12.5px;color:var(--muted);padding-top:1px}
+.dl dd{margin:0;color:var(--ink2);font-size:13.5px}
+@media (max-width:560px){.dl{grid-template-columns:1fr;gap:2px}.dl dt{padding-top:10px}}
+.btn{font-family:var(--sans);font-size:13px;font-weight:500;background:var(--accent);color:var(--plane);border:1px solid var(--accent);
+  border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.sec{background:var(--surf2);color:var(--ink);border-color:var(--line)}
+.btn.sec:hover{background:var(--surf3);border-color:var(--line2);color:var(--ink)}
+.btn.gh{background:none;border-color:transparent;color:var(--accent);padding:6px 8px}
+.btn.gh:hover{background:var(--surf2);border-color:transparent;color:var(--accent2)}
+.btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+textarea,input[type="text"],input[type="search"]{width:100%;font-family:var(--sans);font-size:14px;color:var(--ink);
+  background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:11px 13px;line-height:1.55}
+textarea{resize:vertical;min-height:78px}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+.q{border-top:1px solid var(--line);padding:16px 18px}
+.qn{font-size:12.5px;color:var(--muted);margin-bottom:5px}
+.qt{font-size:14px;font-weight:500;margin:0 0 10px}
+.score{display:inline-flex;align-items:center;gap:10px}
+.score .trk{width:88px;height:4px;border-radius:3px;background:var(--surf3);overflow:hidden}
+.score .trk i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.tabs2{display:flex;gap:4px;overflow-x:auto;padding:0 14px 12px;scrollbar-width:none}
+.tabs2::-webkit-scrollbar{display:none}
+.tabs2 button{background:none;border:0;color:var(--muted);font-family:var(--sans);font-size:13px;
+  padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.tabs2 button:hover{color:var(--ink)}
+.tabs2 button[aria-pressed="true"]{background:var(--surf2);color:var(--ink);font-weight:500}
+.filters{display:flex;gap:7px;flex-wrap:wrap}
+.filters button{background:none;border:1px solid var(--line);border-radius:999px;color:var(--muted);
+  font-family:var(--sans);font-size:12.5px;padding:5px 12px;cursor:pointer}
+.filters button:hover{color:var(--ink);border-color:var(--line2)}
+.filters button[aria-pressed="true"]{background:var(--surf3);border-color:var(--line2);color:var(--ink);font-weight:500}
+.art{padding:16px 18px;border-top:1px solid var(--line)}
+.art .src{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.art h3{font-size:15px;font-weight:600;line-height:1.4;margin:0 0 5px;text-wrap:balance;letter-spacing:-.008em}
+.art h3 a{color:var(--ink)}
+.art h3 a:hover{color:var(--accent);text-decoration:none}
+.art h3.pt{font-size:21px;font-weight:500;letter-spacing:-.018em;font-variant-numeric:tabular-nums}
+.art .why{color:var(--ink2);font-size:13.5px;margin:0 0 8px}
+.take{margin:12px 0 0;padding-left:18px}
+.take li{color:var(--ink2);font-size:13.5px;margin-bottom:7px}
+.take li:last-child{margin-bottom:0}
+.bub{margin-bottom:14px}
+.bub .who{font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.bub.me .t{font-weight:500;font-size:14px}
+.bub.ai .t{color:var(--ink2);font-size:13.5px;border-left:2px solid var(--line2);padding-left:13px}
+.sugg{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.sugg button{background:var(--surf2);border:1px solid var(--line);border-radius:999px;color:var(--ink2);font-family:var(--sans);
+  font-size:12.5px;padding:7px 13px;cursor:pointer;text-align:left}
+.sugg button:hover{border-color:var(--line2);color:var(--ink)}
+.askrow{display:flex;gap:9px}
+.askrow input{flex:1;min-width:0}
+
+/* command palette */
+.scrim{position:fixed;inset:0;background:rgba(10,10,9,.5);z-index:50;display:flex;align-items:flex-start;justify-content:center;
+  padding:calc(env(safe-area-inset-top,0px) + 9vh) max(16px,env(safe-area-inset-left,0px)) 16px}
+.cmd{background:var(--surf);border:1px solid var(--line2);border-radius:14px;width:100%;max-width:560px;overflow:hidden;
+  box-shadow:var(--shadow)}
+.cmd input{border:0;border-bottom:1px solid var(--line);border-radius:0;background:var(--surf);font-size:15.5px;padding:16px 18px}
+.cmd input:focus{outline:none}
+.cmdlist{max-height:min(52vh,420px);overflow:auto;padding:6px}
+.cmdg{font-size:12px;color:var(--muted);padding:10px 12px 5px}
+.cmdi{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;color:var(--ink);
+  font-family:inherit;font-size:13.5px;padding:9px 12px;border-radius:8px;cursor:pointer}
+.cmdi:hover,.cmdi[aria-selected="true"]{background:var(--surf2)}
+.cmdi .t{font-family:var(--mono);font-size:13px;font-weight:500;min-width:56px}
+.cmdi .n{flex:1;color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdi .r{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cmdfoot{border-top:1px solid var(--line);padding:10px 18px;font-size:12px;color:var(--faint);
+  display:flex;gap:16px;flex-wrap:wrap}
+.empty{padding:22px 18px;color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><b>Conviction</b><span>Personal investing</span></div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+  </aside>
+  <div class="main">
+    <div class="bar">
+      <h1 class="page" id="crumb"></h1>
+      <span class="note">Sample data</span>
+      <button class="kbtn" id="open-cmd" type="button">Search <kbd>&#8984;K</kbd></button>
+      <div class="themeseg" role="group" aria-label="Theme">
+        <button type="button" data-theme-set="dark" aria-pressed="true" aria-label="Dark theme" title="Dark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/></svg></button>
+        <button type="button" data-theme-set="light" aria-pressed="false" aria-label="Light theme" title="Light">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><path d="M12 2.5v2.1M12 19.4v2.1M4.6 12H2.5M21.5 12h-2.1M6.6 6.6 5.1 5.1M18.9 18.9l-1.5-1.5M17.4 6.6l1.5-1.5M5.1 18.9l1.5-1.5"/></g></svg></button>
+      </div>
+    </div>
+    <div id="view"></div>
+    <p class="foot" id="foot"></p>
+  </div>
+</div>
+<div id="palette"></div>
+
+<script src="data.js"></script>
+<script src="lib.js"></script>
+<script>
+(function(){
+  var L = IIP, T = L.totals();
+  var ICON = {
+    portfolio:'<path d="M3 13h3v-3H3v3zm0-5h3V3H3v5zm5 5h5V8H8v5zm0-7h5V3H8v3z"/>',
+    convictions:'<path d="M8 1.5 2 4.3v3.4c0 3.3 2.5 6 6 7.3 3.5-1.3 6-4 6-7.3V4.3L8 1.5zm0 2 4 1.9v2.3c0 2.4-1.7 4.4-4 5.5-2.3-1.1-4-3.1-4-5.5V5.4l4-1.9z"/>',
+    news:'<path d="M2 3h9v10H3.5A1.5 1.5 0 0 1 2 11.5V3zm10 2h2v6.5a1.5 1.5 0 0 1-1.5 1.5H12V5zM3.5 5h6v1.5h-6V5zm0 3h6v1h-6V8zm0 2.5h4v1h-4v-1z"/>',
+    securities:'<path d="M7 2a5 5 0 1 1-3.5 8.5l-2 2L.4 11.4l2-2A5 5 0 0 1 7 2zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/>',
+    emerging:'<path d="M8 1.5a4.5 4.5 0 0 1 2.6 8.2v1.8H5.4V9.7A4.5 4.5 0 0 1 8 1.5zM5.4 12.5h5.2v1H5.4v-1zm.8 2h3.6L8.8 15.5H7.2L6.2 14.5z"/>'
+  };
+  var TABS = [
+    {id:"portfolio", label:"Portfolio", kb:"1"},
+    {id:"convictions", label:"Convictions", kb:"2"},
+    {id:"news", label:"News", kb:"3"},
+    {id:"securities", label:"Securities", kb:"4"},
+    {id:"emerging", label:"Emerging tech", kb:"5"}
+  ];
+  var KCL = {diffusion:"k1", packaging:"k2", power:"k3", silicon:"k1", seats:"k3"};
+  var KCOL = {diffusion:"--k1", packaging:"--k2", power:"--k3", silicon:"--k1", seats:"--k3"};
+  var state = {
+    tab:"portfolio", chart:{months:35, show:{sp:true, tech:false}},
+    conv:"diffusion", draft:"", asked:false, adding:false,
+    secTicker:"NVDA", secTab:"valuation", query:"", openTake:0, chat:[],
+    newsFilter:"all", cmd:{open:false, q:"", sel:0}
+  };
+  var view = document.getElementById("view"), crumb = document.getElementById("crumb");
+
+  /* Theme. This direction is designed dark-first, so dark is the default whatever
+     the host is set to; the switch in the bar overrides it and the choice sticks
+     per viewer where storage is allowed. */
+  var TKEY = "conviction-terminal-theme";
+  function readPref(){ try { var v = localStorage.getItem(TKEY); return (v==="dark"||v==="light") ? v : null; } catch(e){ return null; } }
+  function writePref(v){ try { localStorage.setItem(TKEY, v); } catch(e){} }
+  function applyTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    document.querySelectorAll("[data-theme-set]").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b.dataset.themeSet === t));
+    });
+    redraw();
+  }
+  document.querySelectorAll("[data-theme-set]").forEach(function(b){
+    b.addEventListener("click", function(){ writePref(b.dataset.themeSet); applyTheme(b.dataset.themeSet); });
+  });
+  applyTheme(readPref() || "dark");
+
+  /* rail */
+  document.getElementById("nav").innerHTML = TABS.map(function(t){
+    return '<button type="button" data-tab="'+t.id+'"><svg class="ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
+      ICON[t.id]+'</svg>'+t.label+'</button>';
+  }).join("");
+  document.getElementById("nav").addEventListener("click", function(e){
+    var b = e.target.closest("[data-tab]"); if(b) location.hash = b.dataset.tab;
+  });
+  window.addEventListener("hashchange", function(){ readHash(); render(); });
+  function readHash(){
+    var h = (location.hash||"").replace("#","");
+    state.tab = TABS.some(function(t){return t.id===h;}) ? h : "portfolio";
+  }
+
+  /* helpers */
+  function tag(ids){
+    if(!ids || !ids.length) return '<span class="tag none"><i></i>No conviction</span>';
+    return ids.map(function(i){
+      return '<span class="tag '+(KCL[i]||"")+'"><i></i>'+L.convName(i)+'</span>';
+    }).join("");
+  }
+  function tags(ids){ return '<div class="tags">'+tag(ids)+'</div>'; }
+  function score(n){
+    return '<span class="score"><span class="trk"><i style="width:'+(n*10)+'%"></i></span>'+n+' of 10</span>';
+  }
+  function chartPane(){
+    return '<div class="pane"><header><h2>Performance</h2>'+
+      '<div class="ctl"><div class="seg" role="group" aria-label="Range">'+
+      L.RANGES.map(function(r){ return '<button type="button" data-rng="'+r.months+'" aria-pressed="'+(state.chart.months===r.months)+'">'+r.label+'</button>'; }).join("")+
+      '</div><div class="ov">'+
+      '<label><input type="checkbox" id="ov-sp"'+(state.chart.show.sp?" checked":"")+'> S&amp;P 500</label>'+
+      '<label><input type="checkbox" id="ov-tech"'+(state.chart.show.tech?" checked":"")+'> Nasdaq-100</label>'+
+      '</div></div></header>'+
+      '<div class="pad"><div class="chart" id="chart" title="Hover the plot, or focus it and use the arrow keys."></div></div></div>';
+  }
+  function wireChart(){
+    var host = document.getElementById("chart");
+    if(host){
+      var opt = {h: window.innerWidth<560 ? 210 : 280, fill:true};
+      L.indexChart(host, state.chart, opt);
+      new ResizeObserver(function(){ L.indexChart(host, state.chart, opt); }).observe(host);
+    }
+    document.querySelectorAll("[data-rng]").forEach(function(b){
+      b.addEventListener("click", function(){ state.chart.months = +b.dataset.rng; render(); });
+    });
+    ["sp","tech"].forEach(function(k){
+      var el = document.getElementById("ov-"+k);
+      if(el) el.addEventListener("change", function(){ state.chart.show[k] = el.checked; render(); });
+    });
+  }
+  function redraw(){
+    var h = document.getElementById("chart");
+    if(h) L.indexChart(h, state.chart, {h: window.innerWidth<560 ? 210 : 280, fill:true});
+    var s = document.getElementById("secchart");
+    if(s) L.indexChart(s, {months:12, show:{sp:true,tech:false}}, {h:190, fill:true});
+  }
+
+  /* ---------- portfolio ---------- */
+  function vPortfolio(){
+    var pos = DATA.positions.slice().sort(function(a,b){return b.v-a.v;});
+    var rows = pos.map(function(p){
+      return '<tr data-goto="'+p.t+'"><td><span class="tk">'+p.t+'</span><span class="co">'+p.n+'</span></td>'+
+        '<td>'+L.sparkline(p.t, p.tot/4, {w:62,h:20})+'</td>'+
+        '<td class="n">'+L.usd0(p.v)+'<span class="un">'+(p.v/DATA.total*100).toFixed(1)+'% of book</span></td>'+
+        '<td class="n '+L.dir(p.d)+'">'+L.pct(p.d)+'</td>'+
+        '<td class="n '+L.dir(p.tot)+'">'+L.pct(p.tot)+'</td>'+
+        '<td style="text-align:left">'+tag(p.c)+'</td></tr>';
+    }).join("");
+
+    return '<div class="tiles" style="margin-bottom:16px">'+
+      '<div class="tile"><div class="k">Book value</div><div class="v">'+L.usd0(DATA.total)+'</div><div class="d fine">Chase, 15 minutes delayed</div></div>'+
+      '<div class="tile"><div class="k">Today</div><div class="v '+L.dir(T.day)+'">'+L.dol(T.day)+'</div><div class="d '+L.dir(T.day)+'">'+L.pct(T.dayPct)+'</div></div>'+
+      '<div class="tile"><div class="k">All time</div><div class="v '+L.dir(T.gain)+'">'+L.dol(T.gain)+'</div><div class="d '+L.dir(T.gain)+'">'+L.pct(DATA.totPct)+'</div></div>'+
+      '<div class="tile"><div class="k">Cash</div><div class="v">'+L.usd0(DATA.cash)+'</div><div class="d fine">'+(DATA.cash/DATA.total*100).toFixed(1)+'% of book</div></div>'+
+    '</div>'+
+    '<div class="grid c2">'+
+      '<div class="grid">'+
+        chartPane()+
+        '<div class="pane"><header><h2>Holdings</h2><span class="hint">'+pos.length+' positions</span></header>'+
+        '<div class="tw"><table><thead><tr><th>Position</th><th>30 days</th><th>Value</th><th>Today</th><th>All time</th><th style="text-align:left">Conviction</th></tr></thead>'+
+        '<tbody>'+rows+'</tbody></table></div></div>'+
+      '</div>'+
+      '<div class="grid">'+
+        '<div class="pane"><header><h2>Today&rsquo;s read</h2><span class="hint">'+L.dol(T.day)+' explained</span></header>'+
+        DATA.themes.map(function(t){
+          return '<div class="rr"><div class="d '+L.dir(t.dollars)+'">'+L.dol(t.dollars)+'</div>'+
+            '<div><div class="h">'+t.h+'</div><p class="b">'+t.b+'</p>'+
+            '<div class="t">'+t.names.join(", ")+'</div></div></div>';
+        }).join("")+
+        '<div class="rr"><div class="d flat">'+L.dol(DATA.themeRest)+'</div><div><div class="h">No common cause</div>'+
+        '<p class="b">Drift across MSFT, VOO, GOOGL, AMZN and PLTR.</p></div></div>'+
+        '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="fine">'+DATA.themeNote+'</p></div></div>'+
+        '<div class="pane"><header><h2>Flagged</h2><span class="hint">against your convictions</span></header>'+
+        DATA.ideas.map(function(i){
+          return '<button class="fl" type="button" data-goto="'+i.t+'">'+
+            '<div class="flh"><span class="kind '+i.kind.toLowerCase()+'">'+i.kind+'</span><span class="tk">'+i.t+'</span>'+
+            '<span class="mv r">'+L.usd2(i.px)+' <span class="'+L.dir(i.move)+'">'+L.pct(i.move)+'</span> '+i.win+'</span></div>'+
+            '<p class="why">'+i.why+'</p>'+
+            '<div class="flh" style="margin:8px 0 0">'+tag([i.conv])+'</div></button>';
+        }).join("")+'</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  /* ---------- convictions ---------- */
+  function vConvictions(){
+    var c = L.convById(state.conv) || DATA.convictions[0];
+    var funded = DATA.convictions.filter(function(x){ return x.pct > 0; });
+    var segs = funded.map(function(x){
+      return '<div style="width:'+x.pct+'%;background:var('+(KCOL[x.id]||"--k0")+')" title="'+x.short+'"></div>';
+    }).join("")+'<div style="width:'+DATA.unassigned.pct+'%;background:var(--k0)" title="Unassigned"></div>';
+    var legend = funded.map(function(x){
+      return '<div class="xrow"><i style="background:var('+(KCOL[x.id]||"--k0")+')"></i><span class="lbl">'+x.short+'</span><span class="v">'+x.pct.toFixed(1)+'%</span></div>';
+    }).join("")+'<div class="xrow"><i style="background:var(--k0)"></i><span class="lbl">No conviction</span><span class="v">'+DATA.unassigned.pct.toFixed(1)+'%</span></div>';
+
+    var list = DATA.convictions.map(function(x){
+      return '<button class="li" type="button" data-conv="'+x.id+'" aria-current="'+(x.id===c.id && !state.adding)+'">'+
+        '<div class="t">'+x.title+'</div>'+
+        '<div class="m2"><span>'+(x.names.length? x.names.length+" position"+(x.names.length>1?"s":"") : "no positions")+'</span>'+
+        '<span>'+x.pct.toFixed(1)+'%</span></div>'+
+        '<div class="bar2"><i style="width:'+Math.max(x.pct,1)+'%;background:var('+(KCOL[x.id]||"--k0")+')"></i></div></button>';
+    }).join("");
+    var listPane = '<div class="pane"><header><h2>Your convictions</h2>'+
+      '<button class="btn gh" type="button" id="new">'+(state.adding?"Close":"+ New")+'</button></header>'+list+'</div>';
+
+    var exposure = '<div class="pane" style="margin-bottom:16px"><header><h2>Exposure map</h2>'+
+      '<span class="hint">60.0% of the book sits behind one idea</span></header>'+
+      '<div class="pad"><div class="xbar">'+segs+'</div><div class="xlegend">'+legend+'</div>'+
+      '<p class="fine" style="margin-top:16px">Alphabet also carries &ldquo;custom silicon takes share&rdquo;, counted once above. '+
+      '&ldquo;Seat pricing breaks&rdquo; has no positions behind it.</p></div></div>';
+
+    if(state.adding){
+      var form = state.asked ?
+        ('<div class="pad"><p class="lbl" style="margin-bottom:6px">Your words</p>'+
+         '<p class="sub">&ldquo;'+L.esc(state.draft)+'&rdquo;</p></div>'+
+         DATA.followups.map(function(q,i){
+           return '<div class="q"><div class="qn">'+(i+1)+' of 5</div><p class="qt">'+q+'</p><textarea rows="2" placeholder="Answer"></textarea></div>';
+         }).join("")+
+         '<div class="pad-b" style="border-top:1px solid var(--line)"><div class="btns">'+
+         '<button class="btn" type="button" id="save">Save conviction</button>'+
+         '<button class="btn sec" type="button" id="cancel">Discard</button></div></div>')
+        :
+        ('<div class="pad"><p class="sub" style="margin-bottom:12px">Say it the way you would out loud. The five follow-ups are where it gets sharp enough to trade.</p>'+
+         '<textarea id="draft" rows="3" placeholder="Power and cooling, not silicon, will limit AI compute by 2027.">'+L.esc(state.draft)+'</textarea>'+
+         '<div class="btns" style="margin-top:12px"><button class="btn" type="button" id="ask">Pressure test it</button>'+
+         '<button class="btn sec" type="button" id="cancel">Cancel</button></div></div>');
+      return exposure + '<div class="md">'+listPane+
+        '<div class="pane"><header><h2>New conviction</h2>'+
+        '<span class="hint">'+(state.asked?"five questions":"one sentence to start")+'</span></header>'+form+'</div></div>';
+    }
+
+    var m = DATA.corrMatrix;
+    var cm = '<table class="cm"><thead><tr><th></th>'+m.names.map(function(n){return '<th>'+n+'</th>';}).join("")+'</tr></thead><tbody>'+
+      m.names.map(function(n,i){ return '<tr><td class="h">'+n+'</td>'+m.names.map(function(_,j){
+        var v=m.m[i][j], bin = v>=.95?5:v>=.8?4:v>=.7?3:v>=.6?2:1;
+        return '<td class="c b'+bin+'">'+(i===j?"&mdash;":v.toFixed(2))+'</td>';
+      }).join("")+'</tr>'; }).join("")+'</tbody></table>';
+
+    var pos = DATA.positions.filter(function(p){ return p.c.indexOf(c.id)>=0; });
+    var prows = pos.map(function(p){
+      return '<tr data-goto="'+p.t+'"><td><span class="tk">'+p.t+'</span><span class="co">'+p.n+'</span></td>'+
+        '<td class="n">'+L.usd0(p.v)+'<span class="un">'+(p.v/DATA.total*100).toFixed(1)+'% of book</span></td>'+
+        '<td class="n '+L.dir(p.d)+'">'+L.pct(p.d)+'</td><td class="n '+L.dir(p.tot)+'">'+L.pct(p.tot)+'</td></tr>';
+    }).join("") || '<tr><td colspan="4" class="fine" style="padding:16px 18px">No positions behind this conviction.</td></tr>';
+
+    var rel = DATA.news.filter(function(a){ return a.conv.indexOf(c.id)>=0; });
+
+    return exposure+
+    '<div class="md">'+listPane+
+      '<div class="grid">'+
+        '<div class="pane"><header><h2>'+c.short+'</h2><span class="hint">'+c.pct.toFixed(1)+'% &middot; '+L.usd0(c.val)+'</span></header>'+
+          '<div class="pad"><h3 class="ph">'+c.title+'</h3>'+
+          '<dl class="dl" style="margin-top:14px">'+
+            '<dt>Conviction</dt><dd>'+score(c.score)+'</dd>'+
+            '<dt>Horizon</dt><dd>'+c.horizon+'</dd>'+
+            '<dt>Thesis</dt><dd>'+c.body+'</dd>'+
+            '<dt>Falsified by</dt><dd>'+c.falsify+'</dd>'+
+            (c.tension? '<dt>Tension</dt><dd style="color:var(--warn-ink)">'+c.tension+'</dd>':'')+
+            '<dt>Correlation</dt><dd>'+c.corrHi+'</dd>'+
+          '</dl>'+
+          '<div class="btns" style="margin-top:16px"><button class="btn sec" type="button" id="edit">Edit thesis</button></div>'+
+          '<div id="editbox" hidden style="margin-top:12px"><textarea rows="3">'+L.esc(c.body)+'</textarea>'+
+          '<div class="btns" style="margin-top:10px"><button class="btn" type="button" id="saveedit">Save</button></div></div></div>'+
+        '</div>'+
+        '<div class="pane"><header><h2>Positions behind it</h2></header>'+
+          '<div class="tw"><table style="min-width:420px"><thead><tr><th>Position</th><th>Value</th><th>Today</th><th>All time</th></tr></thead><tbody>'+prows+'</tbody></table></div></div>'+
+        '<div class="pane"><header><h2>What this says to do</h2></header>'+
+          c.ideas.map(function(i){
+            return '<button class="fl" type="button"'+(i.t!=="—"?' data-goto="'+i.t+'"':'')+'>'+
+              '<div class="flh"><span class="kind add">'+i.k+'</span><span class="tk">'+i.t+'</span></div>'+
+              '<p class="why">'+i.d+'</p></button>';
+          }).join("")+'</div>'+
+        '<div class="pane"><header><h2>Correlation inside the AI sleeve</h2><span class="hint">90-day daily returns</span></header>'+
+          '<div class="pad"><div class="tw">'+cm+'</div><p class="fine" style="margin-top:14px">Every cell carries its number; colour only speeds up the scan.</p></div></div>'+
+        '<div class="pane"><header><h2>Reading tied to this</h2></header>'+
+          (rel.length? rel.map(function(a){
+            return '<div class="art"><div class="src"><span>'+a.src+'</span><span>'+a.when+'</span></div>'+
+              '<h3><a href="'+a.url+'" target="_blank" rel="noopener">'+a.t+'</a></h3><p class="why">'+a.why+'</p></div>';
+          }).join("") : '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="fine">Nothing credible this week touches this conviction.</p></div>')+'</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  /* ---------- news ---------- */
+  function vNews(){
+    var f = state.newsFilter;
+    var items = DATA.news.filter(function(a){ return f==="all" || a.conv.indexOf(f)>=0; });
+    var chips = '<div class="filters"><button type="button" data-nf="all" aria-pressed="'+(f==="all")+'">Everything</button>'+
+      DATA.convictions.map(function(c){
+        return '<button type="button" data-nf="'+c.id+'" aria-pressed="'+(f===c.id)+'">'+c.short+'</button>';
+      }).join("")+'</div>';
+    return '<div class="pane"><header><h2>Reading list</h2><span class="hint">past 7 days &middot; bylines and correction policies only</span></header>'+
+      '<div class="pad">'+chips+'</div>'+
+      (items.length? items.map(function(a){
+        return '<div class="art"><div class="src"><span>'+a.src+'</span><span>'+a.when+'</span><span>'+a.read+'</span>'+
+          (a.deep? '<span>deep dive</span>':'')+'</div>'+
+          '<h3><a href="'+a.url+'" target="_blank" rel="noopener">'+a.t+'</a></h3>'+
+          '<p class="why">'+a.why+'</p>'+tags(a.conv)+'</div>';
+      }).join("") : '<div class="art"><p class="fine">Nothing this week touches that conviction.</p></div>')+'</div>';
+  }
+
+  /* ---------- securities ---------- */
+  function vSecurities(){
+    var q = state.query.trim().toLowerCase();
+    var hits = (q ? DATA.universe.filter(function(u){
+      return u.t.toLowerCase().indexOf(q)>=0 || u.n.toLowerCase().indexOf(q)>=0 || u.sec.toLowerCase().indexOf(q)>=0;
+    }) : DATA.universe).slice(0,14);
+    var reslist = hits.map(function(u){
+      var held = DATA.positions.some(function(p){ return p.t===u.t; });
+      return '<button class="li" type="button" data-goto="'+u.t+'" aria-current="'+(u.t===state.secTicker)+'">'+
+        '<div class="m2" style="margin-bottom:4px"><span class="tk">'+u.t+'</span>'+
+        '<span class="'+L.dir(u.d)+'">'+L.pct(u.d)+'</span></div>'+
+        '<div class="t" style="font-weight:400;margin:0">'+u.n+'</div>'+
+        '<div class="m2" style="margin-top:5px"><span>'+u.sec+'</span><span>'+(held?"held":"")+'</span></div></button>';
+    }).join("") || '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="fine">Nothing matches. Try NVDA, ALAB, MU or &ldquo;software&rdquo;.</p></div>';
+
+    var s = DATA.security, isN = state.secTicker === "NVDA";
+    var u = DATA.universe.find(function(x){ return x.t===state.secTicker; }) || DATA.universe[0];
+    var held = DATA.positions.find(function(p){ return p.t===state.secTicker; });
+
+    var left = '<div class="pane"><header><h2>Search</h2></header>'+
+      '<div class="pad">'+
+      '<input type="search" id="q" value="'+L.esc(state.query)+'" placeholder="Ticker, name or sector" autocomplete="off"></div>'+
+      reslist+'</div>';
+
+    if(!isN){
+      return '<div class="md">'+left+'<div class="grid">'+
+        '<div class="pane"><header><h2>'+u.t+'</h2><span class="hint">'+u.n+' &middot; '+u.sec+'</span></header>'+
+        '<div class="kv">'+
+          '<div><div class="k">Last</div><div class="v">'+L.usd2(u.px)+'</div><div class="nt '+L.dir(u.d)+'">'+L.pct(u.d)+' today</div></div>'+
+          '<div><div class="k">Market cap</div><div class="v">'+(u.mcap? (u.mcap>=1000? "$"+(u.mcap/1000).toFixed(2)+"T" : "$"+u.mcap+"B") : "—")+'</div></div>'+
+          '<div><div class="k">P/E forward</div><div class="v">'+(u.fpe? u.fpe.toFixed(1)+"×":"—")+'</div></div>'+
+          '<div><div class="k">EV/EBITDA</div><div class="v">'+(u.ev? u.ev.toFixed(1)+"×":"—")+'</div></div>'+
+        '</div>'+
+        '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="fine">'+(held? "Held "+L.usd0(held.v)+", "+(held.v/DATA.total*100).toFixed(1)+"% of book, "+L.pct(held.tot)+" all time." : "Not held.")+'</p>'+
+        '<p class="sub" style="margin-top:10px">Comps, price targets, filings and debates carry full sample content for NVDA only in this mockup. '+
+        '<a href="#" data-goto="NVDA">Open NVDA</a>.</p></div></div>'+
+      '</div></div>';
+    }
+
+    var SUB = [["valuation","Valuation"],["comps","Comps"],["targets","Targets"],["filings","Filings"],["debates","Debates"]];
+    var body = "";
+    if(state.secTab === "valuation"){
+      body = '<div class="kv">'+s.stats.map(function(st){
+          return '<div><div class="k">'+st.k+'</div><div class="v">'+st.v+'</div>'+(st.note?'<div class="nt">'+st.note+'</div>':'')+'</div>';
+        }).join("")+'</div>'+
+        '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="lbl" style="margin-bottom:10px">What semis analysts actually value this on</p>'+
+        s.industry.map(function(i,ix){
+          return '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 16px;padding:12px 0'+(ix?';border-top:1px solid var(--line)':'')+'">'+
+            '<div style="font-weight:500">'+i.k+'</div><div class="m" style="text-align:right">'+i.v+'</div>'+
+            '<p class="fine" style="grid-column:1/-1;margin:0">'+i.why+'</p></div>';
+        }).join("")+'</div>';
+    } else if(state.secTab === "comps"){
+      body = '<div class="tw"><table><thead><tr><th>Company</th><th>Mkt cap</th><th>EV/EBITDA</th><th>P/E fwd</th><th>Rev growth</th><th>Gross margin</th></tr></thead><tbody>'+
+        s.comps.map(function(c){
+          return '<tr'+(c.self?' style="background:var(--surf2)"':'')+'><td><span class="tk">'+c.t+'</span></td>'+
+            '<td class="n">'+c.mcap+'</td><td class="n">'+c.ev+'</td><td class="n">'+c.fpe+'</td><td class="n">'+c.g+'</td><td class="n">'+c.gm+'</td></tr>';
+        }).join("")+'</tbody></table></div>'+
+        '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="fine">Peers by revenue exposure to accelerated computing, not by sector code.</p></div>';
+    } else if(state.secTab === "targets"){
+      var med = s.targets.map(function(t){return t.pt;}).sort(function(a,b){return a-b;})[Math.floor(s.targets.length/2)];
+      body = '<div class="pad"><p class="lbl">Median $'+med+', '+L.pct((med/s.px-1)*100)+' from here</p></div>'+
+        s.targets.map(function(t){
+          return '<div class="art"><div class="src"><span>'+t.firm+'</span><span>'+t.rate+'</span><span>'+t.when+'</span></div>'+
+            '<h3 class="pt">$'+t.pt+' <span class="fine">'+L.pct((t.pt/s.px-1)*100)+'</span></h3>'+
+            '<p class="why">'+t.note+'</p>'+
+            '<a class="fine" href="https://www.google.com/search?q='+encodeURIComponent(t.firm+" NVIDIA price target note")+'" target="_blank" rel="noopener">Research note &rarr;</a></div>';
+        }).join("");
+    } else if(state.secTab === "filings"){
+      body = s.filings.map(function(f,i){
+        var open = state.openTake === i;
+        return '<div class="art"><div class="src"><span>'+f.k+'</span><span>'+f.when+'</span></div>'+
+          '<h3>'+f.label+'</h3>'+
+          '<div class="btns" style="margin:10px 0 0"><button class="btn sec" type="button" data-take="'+i+'">'+(open?"Hide takeaways":"Biggest takeaways")+'</button>'+
+          '<a class="btn sec" style="text-decoration:none" href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=NVDA&type='+(f.k==="Call"?"8-K":f.k)+'" target="_blank" rel="noopener">Open document</a></div>'+
+          (open? '<ul class="take">'+f.take.map(function(t){return '<li>'+t+'</li>';}).join("")+'</ul>':'')+'</div>';
+      }).join("");
+    } else {
+      var chat = state.chat.map(function(m){
+        return '<div class="bub '+(m.r==="me"?"me":"ai")+'"><div class="who">'+(m.r==="me"?"You":"Analysis")+'</div><div class="t">'+L.esc(m.t)+'</div></div>';
+      }).join("");
+      var unasked = s.chat.filter(function(c){ return !state.chat.some(function(m){ return m.r==="me" && m.t===c.q; }); });
+      body = '<div class="pad"><p class="sub">Four unresolved arguments. Everything else about this company is settled enough to be in the price already.</p></div>'+
+        s.debates.map(function(d){
+          return '<div class="art"><h3>'+d.q+'</h3><dl class="dl" style="margin-top:12px">'+
+            '<dt>Where it stands</dt><dd>'+d.state+'</dd><dt>Why it moves price</dt><dd>'+d.why+'</dd><dt>What to watch</dt><dd>'+d.watch+'</dd></dl></div>';
+        }).join("")+
+        '<div class="pad-b" style="border-top:1px solid var(--line)"><p class="lbl" style="margin-bottom:12px">Ask about these debates</p>'+chat+
+        (unasked.length? '<div class="sugg">'+unasked.map(function(c){return '<button type="button" data-ask="'+s.chat.indexOf(c)+'">'+c.q+'</button>';}).join("")+'</div>':'')+
+        '<div class="askrow"><input type="text" id="askin" placeholder="Ask your own question"><button class="btn" type="button" id="asksend">Ask</button></div></div>';
+    }
+
+    return '<div class="md">'+left+'<div class="grid">'+
+      '<div class="pane"><header><h2>'+s.t+'</h2><span class="hint">'+s.n+' &middot; '+s.sec+'</span></header>'+
+        '<div class="kv">'+
+          '<div><div class="k">Last</div><div class="v">'+L.usd2(s.px)+'</div><div class="nt '+L.dir(s.d)+'">'+L.pct(s.d)+' &middot; '+L.dol(s.dAbs)+'</div></div>'+
+          '<div><div class="k">52-week range</div><div class="v">'+L.usd2(s.lo52)+' &ndash; '+L.usd2(s.hi52)+'</div></div>'+
+          '<div><div class="k">Held</div><div class="v">'+s.held.w+'%</div><div class="nt">'+L.usd0(s.held.v)+' &middot; '+L.pct(s.held.tot)+'</div></div>'+
+          '<div><div class="k">Next call</div><div class="v">'+s.nextCall+'</div><div class="nt">in 3 days</div></div>'+
+        '</div>'+
+        '<div class="pad" style="padding-top:0"><div class="chart" id="secchart"></div></div>'+
+      '</div>'+
+      '<div class="pane">'+
+        '<div class="tabs2" style="padding-top:12px" role="group" aria-label="Security sections">'+
+        SUB.map(function(t){ return '<button type="button" data-sub="'+t[0]+'" aria-pressed="'+(state.secTab===t[0])+'">'+t[1]+'</button>'; }).join("")+
+      '</div>'+body+'</div>'+
+    '</div></div>';
+  }
+
+  /* ---------- emerging ---------- */
+  function vEmerging(){
+    return '<div class="pane"><header><h2>Emerging technology</h2><span class="hint">week of 9&ndash;16 November 2026</span></header>'+
+      '<div class="pad"><p class="sub">Milestones only. Funding rounds, keynotes and demo videos are not milestones.</p></div>'+
+      DATA.tech.map(function(t){
+        return '<div class="art"><div class="src"><span>'+t.dom+'</span><span>'+t.when+'</span><span>'+t.src+'</span></div>'+
+          '<h3>'+t.t+'</h3><p class="why">'+t.why+'</p>'+
+          (t.hits.length? tags(t.hits) : '<span class="tag none"><i></i>No conviction yet</span>')+'</div>';
+      }).join("")+'</div>';
+  }
+
+  /* ---------- command palette ---------- */
+  function cmdItems(){
+    var q = state.cmd.q.trim().toLowerCase();
+    var out = [];
+    TABS.forEach(function(t){ out.push({g:"Pages", t:t.label, n:"Go to "+t.label.toLowerCase(), r:t.kb, act:function(){ location.hash = t.id; }}); });
+    DATA.convictions.forEach(function(c){
+      out.push({g:"Convictions", t:c.short, n:c.title, r:c.pct.toFixed(1)+"%", act:function(){ state.conv=c.id; state.adding=false; location.hash="convictions"; render(); }});
+    });
+    DATA.universe.forEach(function(u){
+      out.push({g:"Securities", t:u.t, n:u.n+", "+u.sec, r:L.usd2(u.px), act:function(){ goSec(u.t); }});
+    });
+    if(!q) return out.filter(function(i){ return i.g!=="Securities" || DATA.positions.some(function(p){return p.t===i.t;}); });
+    return out.filter(function(i){ return (i.t+" "+i.n).toLowerCase().indexOf(q) >= 0; });
+  }
+  function renderPalette(){
+    var host = document.getElementById("palette");
+    if(!state.cmd.open){ host.innerHTML = ""; return; }
+    var items = cmdItems(), lastG = null, html = "";
+    items.forEach(function(it, i){
+      if(it.g !== lastG){ html += '<div class="cmdg">'+it.g+'</div>'; lastG = it.g; }
+      html += '<button class="cmdi" type="button" data-ci="'+i+'" aria-selected="'+(i===state.cmd.sel)+'">'+
+        '<span class="t">'+it.t+'</span><span class="n">'+it.n+'</span><span class="r">'+it.r+'</span></button>';
+    });
+    host.innerHTML = '<div class="scrim" id="scrim"><div class="cmd" role="dialog" aria-modal="true" aria-label="Command palette">'+
+      '<input type="text" id="cmdq" value="'+L.esc(state.cmd.q)+'" placeholder="Jump to a page, a conviction or any security" autocomplete="off">'+
+      '<div class="cmdlist" id="cmdlist">'+(items.length? html : '<div class="empty">Nothing matches that.</div>')+'</div>'+
+      '<div class="cmdfoot"><span>&uarr;&darr; move</span><span>&crarr; open</span><span>esc close</span><span>1&ndash;5 switch pages</span></div></div></div>';
+    var input = document.getElementById("cmdq");
+    input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+    input.addEventListener("input", function(){ state.cmd.q = input.value; state.cmd.sel = 0; renderPalette(); });
+    document.getElementById("scrim").addEventListener("mousedown", function(e){
+      if(e.target.id === "scrim") closeCmd();
+    });
+    host.querySelectorAll("[data-ci]").forEach(function(b){
+      b.addEventListener("click", function(){ var it = cmdItems()[+b.dataset.ci]; closeCmd(); it.act(); });
+    });
+    var sel = host.querySelector('[aria-selected="true"]');
+    if(sel) sel.scrollIntoView({block:"nearest"});
+  }
+  function openCmd(){ state.cmd.open = true; state.cmd.q = ""; state.cmd.sel = 0; renderPalette(); }
+  function closeCmd(){ state.cmd.open = false; renderPalette(); }
+  document.getElementById("open-cmd").addEventListener("click", openCmd);
+  document.addEventListener("keydown", function(e){
+    if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==="k"){ e.preventDefault(); state.cmd.open? closeCmd() : openCmd(); return; }
+    if(state.cmd.open){
+      var items = cmdItems();
+      if(e.key==="Escape"){ e.preventDefault(); closeCmd(); }
+      else if(e.key==="ArrowDown"){ e.preventDefault(); state.cmd.sel = Math.min(items.length-1, state.cmd.sel+1); renderPalette(); }
+      else if(e.key==="ArrowUp"){ e.preventDefault(); state.cmd.sel = Math.max(0, state.cmd.sel-1); renderPalette(); }
+      else if(e.key==="Enter"){ e.preventDefault(); var it = items[state.cmd.sel]; if(it){ closeCmd(); it.act(); } }
+      return;
+    }
+    var tag = (e.target.tagName||"").toLowerCase();
+    if(tag==="input"||tag==="textarea") return;
+    var hit = TABS.find(function(t){ return t.kb === e.key; });
+    if(hit){ location.hash = hit.id; }
+  });
+
+  function goSec(t){
+    state.secTicker = t; state.secTab = "valuation"; state.openTake = 0; state.chat = []; state.query = "";
+    if(location.hash !== "#securities"){ location.hash = "securities"; } else { render(); }
+    window.scrollTo({top:0, behavior:"instant"});
+  }
+
+  /* ---------- render ---------- */
+  function render(){
+    document.querySelectorAll("[data-tab]").forEach(function(b){
+      if(b.dataset.tab===state.tab) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+    });
+    crumb.textContent = (TABS.find(function(t){return t.id===state.tab;})||TABS[0]).label;
+    if(state.tab==="portfolio") view.innerHTML = vPortfolio();
+    else if(state.tab==="convictions") view.innerHTML = vConvictions();
+    else if(state.tab==="news") view.innerHTML = vNews();
+    else if(state.tab==="securities") view.innerHTML = vSecurities();
+    else view.innerHTML = vEmerging();
+    wireChart(); wire();
+  }
+
+  function wire(){
+    view.querySelectorAll("[data-goto]").forEach(function(el){
+      el.addEventListener("click", function(e){ e.preventDefault(); goSec(el.dataset.goto); });
+    });
+    view.querySelectorAll("[data-conv]").forEach(function(el){
+      el.addEventListener("click", function(){ state.conv = el.dataset.conv; state.adding = false; render(); });
+    });
+    view.querySelectorAll("[data-sub]").forEach(function(el){
+      el.addEventListener("click", function(){ state.secTab = el.dataset.sub; render(); });
+    });
+    view.querySelectorAll("[data-nf]").forEach(function(el){
+      el.addEventListener("click", function(){ state.newsFilter = el.dataset.nf; render(); });
+    });
+    view.querySelectorAll("[data-take]").forEach(function(el){
+      el.addEventListener("click", function(){ var i=+el.dataset.take; state.openTake = state.openTake===i?null:i; render(); });
+    });
+    view.querySelectorAll("[data-ask]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var c = DATA.security.chat[+el.dataset.ask];
+        state.chat.push({r:"me",t:c.q}); state.chat.push({r:"ai",t:c.a}); render();
+      });
+    });
+    var send = document.getElementById("asksend"), ain = document.getElementById("askin");
+    if(send) send.addEventListener("click", function(){
+      var v=(ain.value||"").trim(); if(!v) return;
+      state.chat.push({r:"me",t:v});
+      state.chat.push({r:"ai",t:"In the built version this goes to the model with the filings, the transcript and your conviction list in context. In the mockup only the suggested questions have written answers."});
+      render();
+    });
+    if(ain) ain.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); send.click(); } });
+
+    var q = document.getElementById("q");
+    if(q) q.addEventListener("input", function(){
+      state.query = q.value; render();
+      var n = document.getElementById("q"); if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+    });
+    var edit = document.getElementById("edit"), box = document.getElementById("editbox");
+    if(edit) edit.addEventListener("click", function(){ box.hidden = !box.hidden; });
+    var se = document.getElementById("saveedit");
+    if(se) se.addEventListener("click", function(){ box.hidden = true; se.textContent = "Saved"; });
+    var nw = document.getElementById("new");
+    if(nw) nw.addEventListener("click", function(){
+      state.adding = !state.adding; state.asked = false; render();
+      window.scrollTo({top:0, behavior:"instant"});
+    });
+    var ask = document.getElementById("ask"), draft = document.getElementById("draft");
+    if(draft) draft.addEventListener("input", function(){ state.draft = draft.value; });
+    if(ask) ask.addEventListener("click", function(){
+      state.draft = (draft.value || draft.placeholder).trim(); state.asked = true; render();
+    });
+    var cancel = document.getElementById("cancel");
+    if(cancel) cancel.addEventListener("click", function(){ state.asked=false; state.draft=""; state.adding=false; render(); });
+    var save = document.getElementById("save");
+    if(save) save.addEventListener("click", function(){
+      var id = "new"+Date.now();
+      DATA.convictions.unshift({ id:id, short: state.draft.split(/[,.]/)[0].slice(0,30), title: state.draft, score:5,
+        added:"16 Nov 2026", horizon:"Not set", body: state.draft, falsify:"Answered in the pressure test.",
+        val:0, pct:0, names:[], corr:null, corrHi:"No positions behind this yet",
+        ideas:[{k:"Next step", t:"—", d:"No positions behind this conviction. The securities tab is where you give it one."}] });
+      state.asked=false; state.draft=""; state.adding=false; state.conv=id; render();
+    });
+  }
+
+  document.getElementById("foot").textContent =
+    "Sample data, nothing live. Chase connected, as of " + DATA.asOf +
+    ". Article and research links point at publication home pages, not at the invented stories.";
+
+  readHash(); render();
+})();
+</script>

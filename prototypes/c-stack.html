@@ -1,0 +1,811 @@
+<title>Conviction Stack</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column of wide cards. Positions are nested inside the conviction
+   they serve, so the portfolio is read by belief rather than by ticker.
+   Sidebar at desktop width, bottom tab bar on a phone. */
+:root{
+  --plane:#f4f5f7; --card:#ffffff; --card2:#fafbfc; --sunk:#eef0f4;
+  --line:#e4e6ec; --line2:#d2d6de;
+  --ink:#15171c; --ink2:#434a56; --muted:#6b7280; --faint:#9aa1ad;
+  --accent:#5b4bd1; --accent2:#4a3bb8; --accent-soft:#efedfc;
+  --up-ink:#0a7a44; --down-ink:#c62a2f; --flat-ink:#6b7280; --warn-ink:#8a6412; --warn-soft:#fdf4e1;
+  --k1:#5b4bd1; --k2:#eb6834; --k3:#1baf7a; --k0:#c7ccd4;
+  --c-port:#5b4bd1; --c-sp:#9aa1ad; --c-tech:#eb6834;
+  --grid:#edeff3; --axis:#d8dbe2; --axis-ink:#8c93a0;
+  --chart-bg:#ffffff; --chart-ink:#15171c; --spark:#9aa1ad;
+  --disp:"Instrument Sans",-apple-system,"Segoe UI",sans-serif;
+  --body:Inter,-apple-system,"Segoe UI",sans-serif;
+  --r:14px; --r2:9px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --plane:#0e1013; --card:#171a1f; --card2:#1c2026; --sunk:#22262d;
+  --line:#272c34; --line2:#343a44;
+  --ink:#eceef2; --ink2:#c4c9d2; --muted:#8f97a3; --faint:#6a7280;
+  --accent:#9085e9; --accent2:#a79ff0; --accent-soft:#232038;
+  --up-ink:#2fbf71; --down-ink:#f2555a; --flat-ink:#8f97a3; --warn-ink:#e0a33a; --warn-soft:#2a2316;
+  --k1:#9085e9; --k2:#d95926; --k3:#199e70; --k0:#3c424c;
+  --c-port:#9085e9; --c-sp:#8f97a3; --c-tech:#d95926;
+  --grid:#20242b; --axis:#2f353e; --axis-ink:#7b828e;
+  --chart-bg:#171a1f; --chart-ink:#eceef2; --spark:#6a7280;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --plane:#0e1013; --card:#171a1f; --card2:#1c2026; --sunk:#22262d;
+  --line:#272c34; --line2:#343a44;
+  --ink:#eceef2; --ink2:#c4c9d2; --muted:#8f97a3; --faint:#6a7280;
+  --accent:#9085e9; --accent2:#a79ff0; --accent-soft:#232038;
+  --up-ink:#2fbf71; --down-ink:#f2555a; --flat-ink:#8f97a3; --warn-ink:#e0a33a; --warn-soft:#2a2316;
+  --k1:#9085e9; --k2:#d95926; --k3:#199e70; --k0:#3c424c;
+  --c-port:#9085e9; --c-sp:#8f97a3; --c-tech:#d95926;
+  --grid:#20242b; --axis:#2f353e; --axis-ink:#7b828e;
+  --chart-bg:#171a1f; --chart-ink:#eceef2; --spark:#6a7280;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--plane);color:var(--ink);font-family:var(--body);font-size:14.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+a{color:var(--accent);text-decoration:none}
+a:hover{color:var(--accent2);text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.m{font-variant-numeric:tabular-nums}
+.up{color:var(--up-ink)} .down{color:var(--down-ink)} .flat{color:var(--flat-ink)}
+h1,h2,h3,h4{font-family:var(--disp);letter-spacing:-.018em;text-wrap:balance;margin:0}
+p{margin:0 0 10px;max-width:70ch}
+p:last-child{margin-bottom:0}
+
+/* shell */
+.app{display:grid;grid-template-columns:minmax(0,1fr);max-width:1180px;margin:0 auto}
+.side{display:none}
+.main{min-width:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 calc(78px + env(safe-area-inset-bottom,0px))}
+@media (min-width:900px){
+  .app{grid-template-columns:224px minmax(0,1fr);gap:26px}
+  .side{display:block;position:sticky;top:env(safe-area-inset-top,0px);align-self:start;max-height:100vh;overflow:auto;
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:4px;padding-block:26px}
+  .main{padding-left:4px;padding-block:26px 48px}
+  .botnav{display:none}
+}
+.brand{margin-bottom:22px}
+.brand b{font-family:var(--disp);font-size:19px;font-weight:600;letter-spacing:-.02em;display:block}
+.brand span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-top:3px}
+.snav{display:flex;flex-direction:column;gap:3px}
+.snav button{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:0;color:var(--ink2);
+  font-family:var(--body);font-size:14px;padding:9px 12px;border-radius:9px;cursor:pointer}
+.snav button:hover{background:var(--card)}
+.snav button[aria-current="page"]{background:var(--card);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px var(--line)}
+.snav svg{width:17px;height:17px;flex:none}
+.sidefoot{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.7}
+
+.botnav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px));
+  display:flex}
+.botnav button{flex:1;background:none;border:0;color:var(--muted);font-family:var(--body);font-size:10.5px;
+  padding:9px 2px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.botnav svg{width:19px;height:19px}
+.botnav button[aria-current="page"]{color:var(--accent);font-weight:600}
+.botnav span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* top strip (mobile brand + theme) */
+.strip{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--plane);display:flex;align-items:center;
+  gap:10px;padding-block:14px 10px;margin-bottom:4px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--plane);z-index:25}
+.strip .sb{font-family:var(--disp);font-size:16px;font-weight:600;flex:1;letter-spacing:-.02em}
+@media (min-width:900px){.strip .sb{display:none}}
+.pill-btn{background:var(--card);border:1px solid var(--line);color:var(--muted);border-radius:99px;padding:5px 11px;
+  font-size:11.5px;cursor:pointer;font-family:var(--body)}
+.pill-btn:hover{color:var(--ink);border-color:var(--line2)}
+.sample{font-size:11px;color:var(--warn-ink);background:var(--warn-soft);border-radius:99px;padding:4px 10px}
+
+/* page head */
+.ph{margin:10px 0 16px}
+.ph h1{font-size:27px;font-weight:600;line-height:1.15}
+.ph p{color:var(--muted);font-size:14px;margin:6px 0 0}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:14px}
+.card.flat{background:none;border-style:dashed}
+.card>h2{font-size:17px;font-weight:600;margin-bottom:3px}
+.card>.cs{color:var(--muted);font-size:13px;margin-bottom:14px}
+.lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.fine{font-size:12.5px;color:var(--muted);line-height:1.55}
+.sub{color:var(--ink2)}
+
+/* hero */
+.hero .v{font-family:var(--disp);font-size:40px;font-weight:600;letter-spacing:-.03em;line-height:1.05}
+.hero .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.pill{display:inline-flex;align-items:baseline;gap:6px;background:var(--sunk);border-radius:99px;padding:5px 12px;font-size:12.5px;color:var(--ink2)}
+.pill b{font-variant-numeric:tabular-nums}
+.pill.up{background:color-mix(in srgb,var(--up-ink) 11%,transparent);color:var(--up-ink)}
+.pill.down{background:color-mix(in srgb,var(--down-ink) 11%,transparent);color:var(--down-ink)}
+
+/* chart */
+.ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--sunk);border-radius:99px;padding:2px}
+.seg button{background:none;border:0;color:var(--muted);font-family:var(--body);font-size:12px;padding:5px 13px;border-radius:99px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.togg{background:var(--card);border:1px solid var(--line2);color:var(--muted);border-radius:99px;padding:5px 13px;
+  font-size:12px;cursor:pointer;font-family:var(--body);display:inline-flex;align-items:center;gap:7px}
+.togg i{width:9px;height:9px;border-radius:99px;background:var(--line2);flex:none}
+.togg[aria-pressed="true"]{border-color:var(--accent);color:var(--ink)}
+.chart{position:relative;width:100%}
+.chart-svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:9px}
+.lg{display:inline-flex;align-items:center;gap:6px}
+.lg i{width:11px;height:2.5px;display:inline-block;flex:none;border-radius:2px}
+.chart-tip{position:absolute;background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;
+  font-size:12px;min-width:152px;pointer-events:none;z-index:4;box-shadow:0 6px 18px rgba(0,0,0,.09)}
+.tip-h{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.tip-r{display:flex;align-items:center;gap:8px;padding:1.5px 0}
+.tip-r i{width:10px;height:2.5px;flex:none;border-radius:2px}
+.tip-r span{flex:1;color:var(--ink2)}
+.tip-r b{font-variant-numeric:tabular-nums}
+
+/* today's read */
+.read{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;padding:13px 0;border-top:1px solid var(--line)}
+.read:first-of-type{border-top:0;padding-top:4px}
+.read .d{font-family:var(--disp);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.read .h{font-family:var(--disp);font-size:15.5px;font-weight:600}
+.read .b{margin:0;color:var(--ink2);font-size:13.5px}
+
+/* conviction cards */
+.cvcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.cvcard.none{border-style:dashed;background:none}
+.cvhead{display:block;width:100%;text-align:left;background:none;border:0;padding:18px 20px;cursor:pointer;color:inherit;font:inherit}
+.cvhead:hover{background:var(--card2)}
+.cvtop{display:flex;gap:14px;justify-content:space-between;align-items:flex-start}
+.cvtop h3{font-size:17px;font-weight:600;line-height:1.3;flex:1;min-width:0}
+.cvtop .w{text-align:right;white-space:nowrap}
+.cvtop .w b{font-family:var(--disp);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;display:block;line-height:1.2}
+.cvtop .w span{font-size:11.5px;color:var(--muted)}
+.xb{height:6px;border-radius:99px;background:var(--sunk);margin-top:14px;overflow:hidden}
+.xb i{display:block;height:100%;border-radius:99px}
+.cvmeta{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:11px;font-size:12px;color:var(--muted)}
+.dots{display:inline-flex;gap:2px;align-items:center}
+.dots i{width:5px;height:5px;border-radius:99px;background:var(--line2)}
+.dots i.on{background:var(--accent)}
+.caret{margin-left:auto;color:var(--faint);font-size:11px}
+.cvbody{border-top:1px solid var(--line);background:var(--card2)}
+.poslist{padding:4px 20px 8px}
+.posrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);width:100%;
+  background:none;border-left:0;border-right:0;border-top:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.posrow:last-child{border-bottom:0}
+.posrow:hover .tk{color:var(--accent)}
+.posrow .tk{font-weight:600;font-size:13.5px;min-width:52px}
+.posrow .nm{flex:1;min-width:0;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.posrow .vv{font-variant-numeric:tabular-nums;font-size:13px;text-align:right}
+.posrow .vv span{display:block;font-size:11.5px;color:var(--muted)}
+.tension{margin:0 20px 14px;background:var(--warn-soft);border-radius:var(--r2);padding:11px 13px;font-size:13px;color:var(--ink2)}
+.tension b{color:var(--warn-ink)}
+.ideas{padding:0 20px 18px}
+.idea{border:1px solid var(--line);border-radius:var(--r2);padding:13px;margin-top:10px;background:var(--card)}
+.idea .ih{display:flex;gap:9px;align-items:center;margin-bottom:5px;flex-wrap:wrap}
+.kind{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);
+  background:var(--accent-soft);border-radius:99px;padding:3px 9px}
+.idea p{margin:0;font-size:13.5px;color:var(--ink2)}
+.cvfoot{padding:0 20px 18px;display:flex;gap:9px;flex-wrap:wrap}
+
+/* buttons */
+.btn{font-family:var(--body);font-size:13px;font-weight:500;background:var(--accent);color:#fff;border:1px solid var(--accent);
+  border-radius:99px;padding:8px 16px;cursor:pointer}
+.btn:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.sec{background:var(--card);color:var(--ink);border-color:var(--line2)}
+.btn.sec:hover{background:var(--card2);color:var(--accent);border-color:var(--accent)}
+.btns{display:flex;gap:9px;flex-wrap:wrap}
+textarea,input[type="text"],input[type="search"]{width:100%;font-family:var(--body);font-size:14.5px;color:var(--ink);
+  background:var(--card);border:1px solid var(--line2);border-radius:var(--r2);padding:12px 14px;line-height:1.55}
+textarea{resize:vertical;min-height:84px}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+input[type="search"]{font-size:16px;padding:14px 16px;border-radius:99px}
+
+/* wizard */
+.prog{display:flex;gap:5px;margin-bottom:16px}
+.prog i{height:4px;flex:1;border-radius:99px;background:var(--sunk)}
+.prog i.on{background:var(--accent)}
+.wq{font-family:var(--disp);font-size:20px;font-weight:600;line-height:1.3;margin-bottom:13px}
+
+/* exposure map */
+.xbar{display:flex;height:30px;border-radius:99px;overflow:hidden;background:var(--sunk)}
+.xbar div+div{margin-left:2px}
+.xlegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:9px 20px;margin-top:14px}
+.xrow{display:flex;align-items:center;gap:9px;font-size:13px}
+.xrow i{width:10px;height:10px;border-radius:3px;flex:none}
+.xrow .l{flex:1;color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xrow .v{font-variant-numeric:tabular-nums;font-weight:600}
+.cm{border-collapse:separate;border-spacing:3px;min-width:360px}
+.cm th{font-size:11px;color:var(--muted);font-weight:500;padding-bottom:3px}
+.cm td.h{text-align:right;font-size:12px;color:var(--ink2);padding-right:7px}
+.cm td.c{width:46px;height:30px;text-align:center;font-size:11.5px;font-variant-numeric:tabular-nums;border-radius:6px}
+.tw{overflow-x:auto}
+
+/* news + tech cards */
+.art{border-top:1px solid var(--line);padding:16px 0}
+.art:first-of-type{border-top:0;padding-top:2px}
+.art:last-child{padding-bottom:0}
+.srcrow{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
+.srcpill{font-size:11.5px;font-weight:600;color:var(--ink2);background:var(--sunk);border-radius:99px;padding:3px 10px}
+.srcpill.deep{color:var(--accent);background:var(--accent-soft)}
+.art h3{font-size:16.5px;font-weight:600;line-height:1.32;margin-bottom:5px}
+.art h3 a{color:var(--ink)}
+.art h3 a:hover{color:var(--accent);text-decoration:none}
+.art .why{color:var(--ink2);font-size:13.5px;margin:0 0 8px}
+.tag{display:inline-block;font-size:11.5px;color:var(--muted);background:var(--sunk);border-radius:99px;padding:2px 9px;margin-right:5px}
+.tag.k1{color:var(--k1);background:var(--accent-soft)}
+.filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.filters button{background:var(--card);border:1px solid var(--line);border-radius:99px;color:var(--muted);font-size:12.5px;
+  padding:6px 13px;cursor:pointer;font-family:var(--body)}
+.filters button:hover{color:var(--ink);border-color:var(--line2)}
+.filters button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:500}
+
+/* security */
+.sechead{display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap;align-items:flex-start}
+.sechead .px{font-family:var(--disp);font-size:34px;font-weight:600;letter-spacing:-.03em;line-height:1.05}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:14px 18px}
+.kv .k{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+.kv .v{font-family:var(--disp);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.kv .nt{font-size:11.5px;color:var(--muted)}
+table.t{width:100%;border-collapse:collapse;min-width:520px}
+table.t th,table.t td{text-align:right;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500}
+table.t th:first-child,table.t td:first-child{text-align:left;padding-left:0}
+table.t th:last-child,table.t td:last-child{padding-right:0}
+table.t td.n{font-variant-numeric:tabular-nums}
+table.t tr.me td{background:var(--accent-soft)}
+table.t tr.med td{font-weight:600;border-bottom:0}
+.pt{display:grid;grid-template-columns:auto 1fr;gap:3px 16px;padding:14px 0;border-top:1px solid var(--line);align-items:baseline}
+.pt:first-of-type{border-top:0}
+.pt .v{font-family:var(--disp);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.pt .f{font-weight:600;font-size:14px}
+.pt .n{color:var(--ink2);font-size:13.5px;grid-column:2}
+.pt .d{font-size:11.5px;color:var(--muted);grid-column:2}
+.fil{border-top:1px solid var(--line);padding:16px 0}
+.fil:first-of-type{border-top:0;padding-top:2px}
+.take{margin:12px 0 0;padding-left:18px}
+.take li{color:var(--ink2);font-size:13.5px;margin-bottom:7px}
+.take li:last-child{margin-bottom:0}
+.dbt{border-top:1px solid var(--line);padding:18px 0}
+.dbt:first-of-type{border-top:0;padding-top:2px}
+.dbt h3{font-size:16.5px;font-weight:600;margin-bottom:9px}
+.dbt .r{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:13.5px}
+.dbt .r dt{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.dbt .r dd{margin:0;color:var(--ink2)}
+@media (max-width:560px){.dbt .r{grid-template-columns:1fr;gap:1px}.dbt .r dt{padding-top:8px}}
+.bub{margin-bottom:13px}
+.bub .who{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.bub.me .t{font-weight:600;font-size:14.5px}
+.bub.ai .t{color:var(--ink2);font-size:13.5px;background:var(--sunk);border-radius:var(--r2);padding:12px 14px}
+.sugg{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.sugg button{background:var(--card);border:1px solid var(--line2);border-radius:var(--r2);color:var(--ink2);
+  font-family:var(--body);font-size:13px;padding:9px 12px;cursor:pointer;text-align:left}
+.sugg button:hover{border-color:var(--accent);color:var(--accent)}
+.askrow{display:flex;gap:8px}
+.askrow input{flex:1;min-width:0}
+.res{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);
+  padding:13px 0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.res:last-child{border-bottom:0}
+.res:hover .tk{color:var(--accent)}
+.res .tk{font-weight:600;min-width:58px}
+.res .nm{flex:1;min-width:0;font-size:13.5px}
+.res .nm span{display:block;font-size:11.5px;color:var(--muted)}
+.res .pxx{font-variant-numeric:tabular-nums;font-size:13.5px;text-align:right}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><b>Conviction</b><span>Option C &middot; stack</span></div>
+    <nav class="snav" id="snav" aria-label="Sections"></nav>
+    <div class="sidefoot">Sample data, not a live feed.<br>Chase brokerage connected 16 Nov 2026.</div>
+  </aside>
+  <div class="main">
+    <div class="strip">
+      <span class="sb">Conviction</span>
+      <span class="sample">Sample data</span>
+      <button class="pill-btn" id="theme" type="button">Dark</button>
+    </div>
+    <div id="view"></div>
+  </div>
+</div>
+<nav class="botnav" id="botnav" aria-label="Sections"></nav>
+
+<script src="data.js"></script>
+<script src="lib.js"></script>
+<script>
+(function(){
+  var L = IIP, T = L.totals();
+  var ICON = {
+    book:'<path d="M3 2.5h5.5A2.5 2.5 0 0 1 11 5v9a2 2 0 0 0-2-2H3v-9.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M17 2.5h-2.5A2.5 2.5 0 0 0 12 5v9a2 2 0 0 1 2-2h3v-9.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>',
+    convictions:'<path d="M10 2.2 3.6 5v4.1c0 3.8 2.8 6.9 6.4 8.4 3.6-1.5 6.4-4.6 6.4-8.4V5L10 2.2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.4 9.8 9.4 12l3.4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    news:'<rect x="2.6" y="4" width="11" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M13.6 7h2.2a1.6 1.6 0 0 1 1.6 1.6v5.8a1.6 1.6 0 0 1-1.6 1.6h-2.2M5.4 7.4h5.4M5.4 10.2h5.4M5.4 13h3.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    search:'<circle cx="8.6" cy="8.6" r="5.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m12.6 12.6 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+    emerging:'<path d="M10 2.6a5.4 5.4 0 0 1 3.1 9.8v1.8H6.9v-1.8A5.4 5.4 0 0 1 10 2.6zM7.6 16h4.8M8.4 18h3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'
+  };
+  var TABS = [
+    {id:"book", label:"Book", icon:"book"},
+    {id:"convictions", label:"Beliefs", icon:"convictions"},
+    {id:"news", label:"News", icon:"news"},
+    {id:"securities", label:"Search", icon:"search"},
+    {id:"emerging", label:"Emerging", icon:"emerging"}
+  ];
+  var KCOL = {diffusion:"--k1", packaging:"--k2", power:"--k3", silicon:"--k1", seats:"--k3"};
+  var state = {
+    tab:"book", chart:{months:35, show:{sp:true, tech:false}},
+    open:{diffusion:true}, conv:null,
+    wiz:{step:-1, text:"", answers:["","","","",""]},
+    secTicker:"NVDA", query:"", openTake:null, chat:[], newsFilter:"all", domFilter:"all"
+  };
+  var view = document.getElementById("view");
+
+  /* theme */
+  var tbtn = document.getElementById("theme");
+  function isDark(){ var a=document.documentElement.getAttribute("data-theme");
+    return a ? a==="dark" : window.matchMedia("(prefers-color-scheme: dark)").matches; }
+  function syncTheme(){ tbtn.textContent = isDark() ? "Light" : "Dark"; }
+  tbtn.addEventListener("click", function(){
+    document.documentElement.setAttribute("data-theme", isDark()?"light":"dark"); syncTheme(); redraw();
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(){ syncTheme(); redraw(); });
+  syncTheme();
+
+  /* nav */
+  function navHTML(bottom){
+    return TABS.map(function(t){
+      return '<button type="button" data-tab="'+t.id+'"><svg viewBox="0 0 20 20" aria-hidden="true">'+ICON[t.icon]+'</svg>'+
+        (bottom? '<span>'+t.label+'</span>' : t.label)+'</button>';
+    }).join("");
+  }
+  document.getElementById("snav").innerHTML = navHTML(false);
+  document.getElementById("botnav").innerHTML = navHTML(true);
+  [document.getElementById("snav"), document.getElementById("botnav")].forEach(function(n){
+    n.addEventListener("click", function(e){
+      var b = e.target.closest("[data-tab]"); if(b) location.hash = b.dataset.tab;
+    });
+  });
+  window.addEventListener("hashchange", function(){ readHash(); render(); window.scrollTo({top:0,behavior:"instant"}); });
+  function readHash(){
+    var h = (location.hash||"").replace("#","");
+    state.tab = TABS.some(function(t){return t.id===h;}) ? h : "book";
+  }
+
+  /* helpers */
+  function dots(n){
+    var s=""; for(var i=1;i<=10;i++) s += '<i class="'+(i<=n?"on":"")+'"></i>';
+    return '<span class="dots" aria-label="Conviction '+n+' of 10">'+s+'</span>';
+  }
+  function chartCard(){
+    return '<div class="card"><h2>Performance</h2><p class="cs">Indexed to 100 at the left edge, so all three read on one axis.</p>'+
+      '<div class="ctl"><div class="seg" role="group" aria-label="Range">'+
+      L.RANGES.map(function(r){ return '<button type="button" data-rng="'+r.months+'" aria-pressed="'+(state.chart.months===r.months)+'">'+r.label+'</button>'; }).join("")+
+      '</div>'+
+      '<button class="togg" type="button" data-ov="sp" aria-pressed="'+state.chart.show.sp+'"><i style="background:var(--c-sp)"></i>S&amp;P 500</button>'+
+      '<button class="togg" type="button" data-ov="tech" aria-pressed="'+state.chart.show.tech+'"><i style="background:var(--c-tech)"></i>Nasdaq-100</button>'+
+      '</div><div class="chart" id="chart"></div>'+
+      '<p class="fine" style="margin-top:9px">Hover the chart, or focus it and use the arrow keys.</p></div>';
+  }
+  function wireChart(){
+    var host = document.getElementById("chart");
+    if(host){
+      var o = {h: window.innerWidth<560 ? 215 : 285, fill:true};
+      L.indexChart(host, state.chart, o);
+      new ResizeObserver(function(){ L.indexChart(host, state.chart, o); }).observe(host);
+    }
+    view.querySelectorAll("[data-rng]").forEach(function(b){
+      b.addEventListener("click", function(){ state.chart.months = +b.dataset.rng; render(); });
+    });
+    view.querySelectorAll("[data-ov]").forEach(function(b){
+      b.addEventListener("click", function(){ var k=b.dataset.ov; state.chart.show[k] = !state.chart.show[k]; render(); });
+    });
+  }
+  function redraw(){
+    var h = document.getElementById("chart");
+    if(h) L.indexChart(h, state.chart, {h: window.innerWidth<560 ? 215 : 285, fill:true});
+    var s = document.getElementById("secchart");
+    if(s) L.indexChart(s, {months:12, show:{sp:true,tech:false}}, {h:200, fill:true});
+  }
+  function posRow(p){
+    return '<button class="posrow" type="button" data-goto="'+p.t+'">'+
+      '<span class="tk">'+p.t+'</span><span class="nm">'+p.n+'</span>'+
+      L.sparkline(p.t, p.tot/4, {w:54,h:18})+
+      '<span class="vv">'+L.usd0(p.v)+'<span>'+(p.v/DATA.total*100).toFixed(1)+'% of book</span></span>'+
+      '<span class="vv '+L.dir(p.d)+'">'+L.pct(p.d)+'<span class="'+L.dir(p.tot)+'">'+L.pct(p.tot)+' all time</span></span></button>';
+  }
+
+  /* ---------- book ---------- */
+  function vBook(){
+    var cards = DATA.convictions.filter(function(c){ return c.pct > 0; }).map(function(c){
+      var pos = DATA.positions.filter(function(p){ return p.c.indexOf(c.id)>=0; });
+      var day = pos.reduce(function(a,p){ return a + L.dayDollars(p); }, 0);
+      var open = !!state.open[c.id];
+      return '<div class="cvcard">'+
+        '<button class="cvhead" type="button" data-open="'+c.id+'" aria-expanded="'+open+'">'+
+          '<div class="cvtop"><h3>'+c.title+'</h3>'+
+          '<div class="w"><b>'+c.pct.toFixed(1)+'%</b><span>'+L.usd0(c.val)+'</span></div></div>'+
+          '<div class="xb"><i style="width:'+c.pct+'%;background:var('+KCOL[c.id]+')"></i></div>'+
+          '<div class="cvmeta">'+dots(c.score)+'<span>'+pos.length+' position'+(pos.length===1?"":"s")+'</span>'+
+          '<span class="'+L.dir(day)+'">'+L.dol(day)+' today</span>'+
+          (c.tension? '<span style="color:var(--warn-ink)">tension</span>':'')+
+          '<span class="caret">'+(open? "Hide" : "Show")+' positions</span></div>'+
+        '</button>'+
+        (open? '<div class="cvbody">'+
+          '<div class="poslist">'+pos.map(posRow).join("")+'</div>'+
+          (c.tension? '<div class="tension"><b>Tension.</b> '+c.tension+'</div>':'')+
+          '<div class="ideas">'+c.ideas.map(function(i){
+            return '<div class="idea"><div class="ih"><span class="kind">'+i.k+'</span><b>'+i.t+'</b></div><p>'+i.d+'</p></div>';
+          }).join("")+'</div>'+
+          '<div class="cvfoot"><button class="btn sec" type="button" data-conv="'+c.id+'">Open this belief</button></div>'+
+        '</div>' : '')+
+      '</div>';
+    }).join("");
+
+    var un = DATA.positions.filter(function(p){ return p.c.length === 0; });
+    var unOpen = !!state.open.__un;
+    var unassigned = '<div class="cvcard none">'+
+      '<button class="cvhead" type="button" data-open="__un" aria-expanded="'+unOpen+'">'+
+        '<div class="cvtop"><h3>Behind no conviction at all</h3>'+
+        '<div class="w"><b>'+DATA.unassigned.pct.toFixed(1)+'%</b><span>'+L.usd0(DATA.unassigned.val)+'</span></div></div>'+
+        '<div class="xb"><i style="width:'+DATA.unassigned.pct+'%;background:var(--k0)"></i></div>'+
+        '<div class="cvmeta"><span>'+(un.length+1)+' holdings including cash</span>'+
+        '<span class="caret">'+(unOpen?"Hide":"Show")+' positions</span></div>'+
+      '</button>'+
+      (unOpen? '<div class="cvbody"><div class="poslist">'+un.map(posRow).join("")+
+        '<div class="posrow" style="cursor:default"><span class="tk">CASH</span><span class="nm">Settled, uninvested</span>'+
+        '<span class="vv">'+L.usd0(DATA.cash)+'<span>'+(DATA.cash/DATA.total*100).toFixed(1)+'% of book</span></span></div></div>'+
+        '<div class="ideas"><div class="idea"><div class="ih"><span class="kind">Decide</span><b>Two of these three</b></div>'+
+        '<p>The index fund and the cash are deliberate. CrowdStrike is not: it predates every conviction on your list, and one of them argues against it.</p></div></div>'+
+        '</div>' : '')+
+    '</div>';
+
+    return '<div class="ph"><h1>The book, by belief</h1><p>'+DATA.asOf+'</p></div>'+
+      '<div class="card hero">'+
+        '<div class="lbl">Total value</div>'+
+        '<div class="v">'+L.usd0(DATA.total)+'</div>'+
+        '<div class="pills">'+
+          '<span class="pill '+L.dir(T.day)+'">Today <b>'+L.dol(T.day)+' &middot; '+L.pct(T.dayPct)+'</b></span>'+
+          '<span class="pill '+L.dir(T.gain)+'">All time <b>'+L.dol(T.gain)+' &middot; '+L.pct(DATA.totPct)+'</b></span>'+
+          '<span class="pill">Cash <b>'+L.usd0(DATA.cash)+'</b></span>'+
+        '</div>'+
+      '</div>'+
+      chartCard()+
+      '<div class="card"><h2>What moved it today</h2><p class="cs">Three causes, '+L.dol(T.day)+' between them.</p>'+
+        DATA.themes.map(function(t){
+          return '<div class="read"><div class="d '+L.dir(t.dollars)+'">'+L.dol(t.dollars)+'</div>'+
+            '<div><div class="h">'+t.h+'</div><p class="b">'+t.b+'</p></div></div>';
+        }).join("")+
+        '<div class="read"><div class="d flat">'+L.dol(DATA.themeRest)+'</div><div><div class="h">No common cause.</div>'+
+        '<p class="b">Drift across MSFT, VOO, GOOGL, AMZN and PLTR.</p></div></div>'+
+        '<p class="fine" style="margin-top:14px">'+DATA.themeNote+'</p></div>'+
+      '<div class="ph" style="margin-top:26px"><h1 style="font-size:22px">Your positions, grouped by what they are for</h1>'+
+        '<p>Every holding sits under the belief it serves. Anything that does not fit is at the bottom, which is the point.</p></div>'+
+      cards + unassigned +
+      '<div class="card"><h2>Flagged for a decision</h2><p class="cs">Four things today, each tied to something you said you believed.</p>'+
+        DATA.ideas.map(function(i){
+          return '<div class="idea" style="margin-top:12px"><div class="ih"><span class="kind">'+i.kind+'</span><b>'+i.t+'</b>'+
+            '<span class="fine">'+L.usd2(i.px)+' &middot; <span class="'+L.dir(i.move)+'">'+L.pct(i.move)+'</span> '+i.win+'</span></div>'+
+            '<p>'+i.why+'</p>'+
+            '<div class="btns" style="margin-top:11px"><button class="btn sec" type="button" data-goto="'+i.t+'">Open '+i.t+'</button>'+
+            '<span class="tag k1" style="align-self:center">'+L.convName(i.conv)+'</span></div></div>';
+        }).join("")+'</div>';
+  }
+
+  /* ---------- beliefs ---------- */
+  function vConvictions(){
+    if(state.conv) return vConvDetail(L.convById(state.conv));
+    var funded = DATA.convictions.filter(function(c){ return c.pct>0; });
+    var segs = funded.map(function(c){
+      return '<div style="width:'+c.pct+'%;background:var('+KCOL[c.id]+')" title="'+c.short+'"></div>';
+    }).join("")+'<div style="width:'+DATA.unassigned.pct+'%;background:var(--k0)" title="No conviction"></div>';
+    var legend = funded.map(function(c){
+      return '<div class="xrow"><i style="background:var('+KCOL[c.id]+')"></i><span class="l">'+c.short+'</span><span class="v">'+c.pct.toFixed(1)+'%</span></div>';
+    }).join("")+'<div class="xrow"><i style="background:var(--k0)"></i><span class="l">No conviction</span><span class="v">'+DATA.unassigned.pct.toFixed(1)+'%</span></div>';
+
+    var m = DATA.corrMatrix;
+    var cm = '<table class="cm"><thead><tr><th></th>'+m.names.map(function(n){return '<th>'+n+'</th>';}).join("")+'</tr></thead><tbody>'+
+      m.names.map(function(n,i){ return '<tr><td class="h">'+n+'</td>'+m.names.map(function(_,j){
+        var v=m.m[i][j], bin = v>=.95?5:v>=.8?4:v>=.7?3:v>=.6?2:1;
+        var bg=["","#cde2fb","#9ec5f4","#5598e7","#2a78d6","#184f95"][bin];
+        return '<td class="c" style="background:'+bg+';color:'+(bin>=3?"#ffffff":"#0b0b0b")+'">'+(i===j?"&mdash;":v.toFixed(2))+'</td>';
+      }).join("")+'</tr>'; }).join("")+'</tbody></table>';
+
+    var list = DATA.convictions.map(function(c){
+      var funded2 = c.pct > 0;
+      return '<button class="cvhead" type="button" data-conv="'+c.id+'" style="border-bottom:1px solid var(--line)">'+
+        '<div class="cvtop"><h3>'+c.title+'</h3><div class="w"><b>'+c.pct.toFixed(1)+'%</b>'+
+        '<span>'+(funded2? L.usd0(c.val) : "no positions")+'</span></div></div>'+
+        '<div class="cvmeta">'+dots(c.score)+'<span>'+c.horizon+'</span><span>added '+c.added+'</span>'+
+        (c.tension? '<span style="color:var(--warn-ink)">tension</span>':'')+'</div></button>';
+    }).join("");
+
+    var w = state.wiz, form;
+    if(w.step === -1){
+      form = '<p class="sub" style="margin-bottom:12px">Write it the way you would say it out loud. It will be broad, and that is fine. The five questions after this are where it gets sharp enough to trade.</p>'+
+        '<textarea id="draft" rows="3" placeholder="Power and cooling, not silicon, will be what limits AI compute by 2027.">'+L.esc(w.text)+'</textarea>'+
+        '<div class="btns" style="margin-top:12px"><button class="btn" type="button" id="start">Pressure test it</button></div>';
+    } else if(w.step < 5){
+      form = '<div class="prog">'+DATA.followups.map(function(_,i){ return '<i class="'+(i<=w.step?"on":"")+'"></i>'; }).join("")+'</div>'+
+        '<div class="lbl" style="margin-bottom:8px">Question '+(w.step+1)+' of 5</div>'+
+        '<div class="wq">'+DATA.followups[w.step]+'</div>'+
+        '<textarea id="ans" rows="3" placeholder="Your answer">'+L.esc(w.answers[w.step])+'</textarea>'+
+        '<div class="btns" style="margin-top:12px">'+
+          '<button class="btn" type="button" id="next">'+(w.step===4? "Save conviction" : "Next question")+'</button>'+
+          '<button class="btn sec" type="button" id="prev">'+(w.step===0? "Back to the statement" : "Previous")+'</button>'+
+        '</div>'+
+        '<p class="fine" style="margin-top:14px">&ldquo;'+L.esc(w.text)+'&rdquo;</p>';
+    } else {
+      form = '<p class="sub">Saved. It is at the top of the list above with no positions behind it yet.</p>'+
+        '<div class="btns" style="margin-top:12px"><button class="btn sec" type="button" id="again">Add another</button></div>';
+    }
+
+    return '<div class="ph"><h1>Beliefs</h1><p>Five convictions, '+DATA.convictions.filter(function(c){return c.pct>0;}).length+' of them funded.</p></div>'+
+      '<div class="card"><h2>Where the money actually sits</h2>'+
+        '<p class="cs">60% of the book is behind one conviction, and the five names inside it correlate at 0.69. Five tickers, one bet.</p>'+
+        '<div class="xbar">'+segs+'</div><div class="xlegend">'+legend+'</div>'+
+        '<p class="fine" style="margin-top:16px">Alphabet also carries &ldquo;custom silicon takes share&rdquo; (8.7% of the book, counted once above). '+
+        '&ldquo;Seat pricing breaks&rdquo; has no positions behind it, and two positions arguing against it.</p></div>'+
+      '<div class="card"><h2>Correlation inside the AI sleeve</h2><p class="cs">Ninety-day daily returns. Highest pair: '+DATA.convictions[0].corrHi+'.</p>'+
+        '<div class="tw">'+cm+'</div><p class="fine" style="margin-top:12px">Darker is more correlated. A diversification check, not a risk model.</p></div>'+
+      '<div class="card" style="padding:0;overflow:hidden">'+
+        '<div style="padding:20px 20px 0"><h2>All five</h2><p class="cs">Tap one to see positions, falsification test and ideas.</p></div>'+list+'</div>'+
+      '<div class="card"><h2>Add a conviction</h2>'+form+'</div>';
+  }
+
+  function vConvDetail(c){
+    var pos = DATA.positions.filter(function(p){ return p.c.indexOf(c.id)>=0; });
+    var rel = DATA.news.filter(function(a){ return a.conv.indexOf(c.id)>=0; });
+    return '<div class="ph"><button class="btn sec" type="button" id="back" style="margin-bottom:14px">&larr; All beliefs</button>'+
+      '<h1>'+c.title+'</h1><p>'+c.pct.toFixed(1)+'% of the book &middot; '+L.usd0(c.val)+' &middot; added '+c.added+'</p></div>'+
+      '<div class="card"><div class="cvmeta" style="margin:0 0 14px">'+dots(c.score)+'<span>'+c.score+' of 10</span><span>'+c.horizon+'</span></div>'+
+        '<p class="sub" style="font-size:15.5px">'+c.body+'</p>'+
+        (c.tension? '<div class="tension" style="margin:14px 0 0"><b>Tension.</b> '+c.tension+'</div>':'')+
+        '<div class="btns" style="margin-top:14px"><button class="btn sec" type="button" id="edit">Edit</button></div>'+
+        '<div id="editbox" hidden style="margin-top:12px"><textarea rows="3">'+L.esc(c.body)+'</textarea>'+
+        '<div class="btns" style="margin-top:10px"><button class="btn" type="button" id="saveedit">Save</button></div></div></div>'+
+      '<div class="card"><h2>What would make you wrong</h2><p class="sub">'+c.falsify+'</p></div>'+
+      '<div class="card"><h2>Positions behind it</h2><p class="cs">'+c.corrHi+'.</p>'+
+        (pos.length? pos.map(posRow).join("") : '<p class="fine">None. That is either a gap or a reason to mark the conviction down.</p>')+'</div>'+
+      '<div class="card"><h2>What this says to do</h2>'+
+        c.ideas.map(function(i){
+          return '<div class="idea" style="margin-top:12px"><div class="ih"><span class="kind">'+i.k+'</span><b>'+i.t+'</b></div><p>'+i.d+'</p>'+
+            (i.t!=="—"? '<div class="btns" style="margin-top:11px"><button class="btn sec" type="button" data-goto="'+i.t+'">Open '+i.t+'</button></div>':'')+
+          '</div>';
+        }).join("")+'</div>'+
+      '<div class="card"><h2>Reading tied to this</h2>'+
+        (rel.length? rel.map(function(a){
+          return '<div class="art"><div class="srcrow"><span class="srcpill">'+a.src+'</span><span class="fine">'+a.when+'</span></div>'+
+            '<h3><a href="'+a.url+'" target="_blank" rel="noopener">'+a.t+'</a></h3><p class="why">'+a.why+'</p></div>';
+        }).join("") : '<p class="fine">Nothing credible this week touches this conviction.</p>')+'</div>';
+  }
+
+  /* ---------- news ---------- */
+  function vNews(){
+    var f = state.newsFilter;
+    var items = DATA.news.filter(function(a){ return f==="all" || a.conv.indexOf(f)>=0; });
+    return '<div class="ph"><h1>News</h1><p>Past seven days. Outlets with a byline and a correction policy, nothing recycled from a press release.</p></div>'+
+      '<div class="filters"><button type="button" data-nf="all" aria-pressed="'+(f==="all")+'">Everything</button>'+
+        DATA.convictions.map(function(c){ return '<button type="button" data-nf="'+c.id+'" aria-pressed="'+(f===c.id)+'">'+c.short+'</button>'; }).join("")+'</div>'+
+      '<div class="card">'+
+      (items.length? items.map(function(a){
+        return '<article class="art"><div class="srcrow"><span class="srcpill'+(a.deep?" deep":"")+'">'+a.src+'</span>'+
+          '<span class="fine">'+a.when+' &middot; '+a.read+' read'+(a.deep? " &middot; deep dive":"")+'</span></div>'+
+          '<h3><a href="'+a.url+'" target="_blank" rel="noopener">'+a.t+'</a></h3>'+
+          '<p class="why">'+a.why+'</p>'+
+          a.conv.map(function(id){ return '<span class="tag">'+L.convName(id)+'</span>'; }).join("")+'</article>';
+      }).join("") : '<p class="fine">Nothing this week touches that conviction.</p>')+'</div>';
+  }
+
+  /* ---------- securities ---------- */
+  function vSecurities(){
+    var q = state.query.trim().toLowerCase();
+    var hits = q ? DATA.universe.filter(function(u){
+      return u.t.toLowerCase().indexOf(q)>=0 || u.n.toLowerCase().indexOf(q)>=0 || u.sec.toLowerCase().indexOf(q)>=0;
+    }).slice(0,8) : [];
+    var search = '<div class="ph"><h1>Search</h1><p>Any listed security. Try a ticker, a company or a sector.</p></div>'+
+      '<input type="search" id="q" value="'+L.esc(state.query)+'" placeholder="NVDA, Astera Labs, utilities&hellip;" autocomplete="off">'+
+      (hits.length? '<div class="card" style="margin-top:14px">'+hits.map(function(u){
+        var held = DATA.positions.some(function(p){ return p.t===u.t; });
+        return '<button class="res" type="button" data-goto="'+u.t+'"><span class="tk">'+u.t+'</span>'+
+          '<span class="nm">'+u.n+'<span>'+u.sec+(held? " &middot; held":"")+'</span></span>'+
+          '<span class="pxx">'+L.usd2(u.px)+'<span class="'+L.dir(u.d)+'" style="display:block;font-size:12px">'+L.pct(u.d)+'</span></span></button>';
+      }).join("")+'</div>' : (q? '<p class="fine" style="margin-top:12px">Nothing in this mockup matches that. Try NVDA, ALAB, MU or CEG.</p>' : ''))+
+      (!q? '<div class="filters" style="margin-top:14px">'+DATA.positions.slice(0,6).map(function(p){
+        return '<button type="button" data-goto="'+p.t+'">'+p.t+'</button>';
+      }).join("")+'<button type="button" data-goto="ALAB">ALAB</button></div>' : '');
+
+    var s = DATA.security, isN = state.secTicker==="NVDA";
+    var u = DATA.universe.find(function(x){ return x.t===state.secTicker; }) || DATA.universe[0];
+    var held = DATA.positions.find(function(p){ return p.t===state.secTicker; });
+
+    if(!isN){
+      return search + '<div class="card" style="margin-top:18px"><div class="sechead"><div>'+
+        '<h2 style="font-size:22px">'+u.n+'</h2><p class="cs">'+u.t+' &middot; '+u.sec+'</p>'+
+        '<div class="px" style="margin-top:10px">'+L.usd2(u.px)+'</div>'+
+        '<div class="pill '+L.dir(u.d)+'" style="margin-top:10px">Today <b>'+L.pct(u.d)+'</b></div></div></div>'+
+        '<div class="kv" style="margin-top:22px">'+
+          '<div><div class="k">Market cap</div><div class="v">'+(u.mcap? (u.mcap>=1000? "$"+(u.mcap/1000).toFixed(2)+"T":"$"+u.mcap+"B") : "—")+'</div></div>'+
+          '<div><div class="k">P/E forward</div><div class="v">'+(u.fpe? u.fpe.toFixed(1)+"×":"—")+'</div></div>'+
+          '<div><div class="k">EV / EBITDA</div><div class="v">'+(u.ev? u.ev.toFixed(1)+"×":"—")+'</div></div>'+
+          '<div><div class="k">Revenue growth</div><div class="v">'+(u.g!=null? L.pct(u.g,0):"—")+'</div></div>'+
+        '</div>'+
+        '<p class="fine" style="margin-top:18px">'+(held? "Held "+L.usd0(held.v)+" · "+(held.v/DATA.total*100).toFixed(1)+"% of the book · "+L.pct(held.tot)+" all time." : "Not held.")+'</p>'+
+        '<p class="sub" style="margin-top:12px">Comps, price targets, filings and debates carry full sample content for NVDA only in this mockup. '+
+        '<a href="#" data-goto="NVDA">Open NVDA</a>.</p></div>';
+    }
+
+    var med = s.targets.map(function(t){return t.pt;}).sort(function(a,b){return a-b;})[Math.floor(s.targets.length/2)];
+    var chat = state.chat.map(function(m){
+      return '<div class="bub '+(m.r==="me"?"me":"ai")+'"><div class="who">'+(m.r==="me"?"You":"Analysis")+'</div><div class="t">'+L.esc(m.t)+'</div></div>';
+    }).join("");
+    var unasked = s.chat.filter(function(c){ return !state.chat.some(function(m){ return m.r==="me" && m.t===c.q; }); });
+
+    return search +
+      '<div class="card" style="margin-top:18px"><div class="sechead">'+
+        '<div><h2 style="font-size:22px">'+s.n+'</h2><p class="cs">'+s.t+' &middot; '+s.sec+'</p>'+
+        '<div class="px" style="margin-top:10px">'+L.usd2(s.px)+'</div>'+
+        '<div class="pills" style="margin-top:10px">'+
+          '<span class="pill '+L.dir(s.d)+'">Today <b>'+L.pct(s.d)+' &middot; '+L.dol(s.dAbs)+'</b></span>'+
+          '<span class="pill">Held <b>'+s.held.w+'%</b></span>'+
+          '<span class="pill">Call in 3 days <b>'+s.nextCall+'</b></span>'+
+        '</div></div>'+
+        '<div class="fine" style="text-align:right;min-width:150px">52-week<br>'+L.usd2(s.lo52)+' &ndash; '+L.usd2(s.hi52)+'</div>'+
+      '</div>'+
+      '<div class="chart" id="secchart" style="margin-top:18px"></div>'+
+      '<p class="fine" style="margin-top:8px">Twelve months, rebased to 100, against the S&amp;P 500.</p></div>'+
+      '<div class="card"><h2>Valuation</h2><p class="cs">The multiples, then the four things semis analysts actually argue about.</p>'+
+        '<div class="kv">'+s.stats.map(function(st){
+          return '<div><div class="k">'+st.k+'</div><div class="v">'+st.v+'</div>'+(st.note? '<div class="nt">'+st.note+'</div>':'')+'</div>';
+        }).join("")+'</div>'+
+        '<div style="margin-top:20px">'+s.industry.map(function(i){
+          return '<div class="read"><div class="d">'+i.v+'</div><div><div class="h">'+i.k+'</div><p class="b">'+i.why+'</p></div></div>';
+        }).join("")+'</div></div>'+
+      '<div class="card"><h2>Comparables</h2><p class="cs">Peers by revenue exposure to accelerated computing, not by sector code.</p>'+
+        '<div class="tw"><table class="t"><thead><tr><th>Company</th><th>Market cap</th><th>EV/EBITDA</th><th>P/E fwd</th><th>Rev growth</th><th>Gross margin</th></tr></thead><tbody>'+
+        s.comps.map(function(c){
+          return '<tr class="'+(c.self?"me":"")+(c.median?" med":"")+'"><td><b>'+c.t+'</b></td><td class="n">'+c.mcap+'</td>'+
+            '<td class="n">'+c.ev+'</td><td class="n">'+c.fpe+'</td><td class="n">'+c.g+'</td><td class="n">'+c.gm+'</td></tr>';
+        }).join("")+'</tbody></table></div></div>'+
+      '<div class="card"><h2>Price targets</h2><p class="cs">Median $'+med+', '+L.pct((med/s.px-1)*100)+' from here. Five firms, newest first.</p>'+
+        s.targets.map(function(t){
+          return '<div class="pt"><div class="v">$'+t.pt+'</div><div class="f">'+t.firm+' <span class="fine">'+t.rate+' &middot; '+t.when+'</span></div>'+
+            '<div class="n">'+t.note+'</div>'+
+            '<div class="d"><a href="https://www.google.com/search?q='+encodeURIComponent(t.firm+" NVIDIA price target research note")+'" target="_blank" rel="noopener">Research note &rarr;</a></div></div>';
+        }).join("")+'</div>'+
+      '<div class="card"><h2>Filings and calls</h2><p class="cs">Each one with the takeaways that actually changed something.</p>'+
+        s.filings.map(function(f,i){
+          var open = state.openTake===i;
+          return '<div class="fil"><div class="srcrow"><span class="srcpill">'+f.k+'</span><span class="fine">'+f.when+'</span></div>'+
+            '<h3 style="font-family:var(--disp);font-size:16px;font-weight:600;margin-bottom:9px">'+f.label+'</h3>'+
+            '<div class="btns"><button class="btn sec" type="button" data-take="'+i+'">'+(open?"Hide takeaways":"Biggest takeaways")+'</button>'+
+            '<a class="btn sec" style="text-decoration:none" href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=NVDA&type='+(f.k==="Call"?"8-K":f.k)+'" target="_blank" rel="noopener">Open document</a></div>'+
+            (open? '<ul class="take">'+f.take.map(function(t){return '<li>'+t+'</li>';}).join("")+'</ul>':'')+'</div>';
+        }).join("")+'</div>'+
+      '<div class="card"><h2>The debates that set this price</h2>'+
+        '<p class="cs">Four unresolved arguments. Everything else here is settled enough to be in the price already.</p>'+
+        s.debates.map(function(d){
+          return '<div class="dbt"><h3>'+d.q+'</h3><dl class="r">'+
+            '<dt>Stands</dt><dd>'+d.state+'</dd><dt>Matters</dt><dd>'+d.why+'</dd><dt>Watch</dt><dd>'+d.watch+'</dd></dl></div>';
+        }).join("")+
+        '<div style="border-top:1px solid var(--line);margin-top:18px;padding-top:18px">'+
+        '<div class="lbl" style="margin-bottom:12px">Ask about these debates</div>'+chat+
+        (unasked.length? '<div class="sugg">'+unasked.map(function(c){ return '<button type="button" data-ask="'+s.chat.indexOf(c)+'">'+c.q+'</button>'; }).join("")+'</div>':'')+
+        '<div class="askrow"><input type="text" id="askin" placeholder="Ask your own question"><button class="btn" type="button" id="asksend">Ask</button></div>'+
+        '</div></div>';
+  }
+
+  /* ---------- emerging ---------- */
+  function vEmerging(){
+    var doms = ["all"].concat(DATA.tech.map(function(t){return t.dom;}).filter(function(d,i,a){return a.indexOf(d)===i;}));
+    var items = DATA.tech.filter(function(t){ return state.domFilter==="all" || t.dom===state.domFilter; });
+    return '<div class="ph"><h1>Emerging tech</h1><p>Week of 9&ndash;16 November 2026. Milestones only &mdash; funding rounds, keynotes and demo videos are not milestones.</p></div>'+
+      '<div class="filters">'+doms.map(function(d){
+        return '<button type="button" data-dom="'+d+'" aria-pressed="'+(state.domFilter===d)+'">'+(d==="all"?"All areas":d)+'</button>';
+      }).join("")+'</div>'+
+      '<div class="card">'+items.map(function(t){
+        return '<article class="art"><div class="srcrow"><span class="srcpill deep">'+t.dom+'</span>'+
+          '<span class="fine">'+t.when+' 2026 &middot; '+t.src+'</span></div>'+
+          '<h3>'+t.t+'</h3><p class="why">'+t.why+'</p>'+
+          (t.hits.length? t.hits.map(function(h){ return '<span class="tag k1">'+L.convName(h)+'</span>'; }).join("")
+            : '<span class="tag">no conviction of yours touches this yet</span>')+'</article>';
+      }).join("")+'</div>';
+  }
+
+  /* ---------- render ---------- */
+  function render(){
+    document.querySelectorAll("[data-tab]").forEach(function(b){
+      if(b.dataset.tab===state.tab) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+    });
+    if(state.tab==="book") view.innerHTML = vBook();
+    else if(state.tab==="convictions") view.innerHTML = vConvictions();
+    else if(state.tab==="news") view.innerHTML = vNews();
+    else if(state.tab==="securities") view.innerHTML = vSecurities();
+    else view.innerHTML = vEmerging();
+    wireChart(); wire();
+  }
+
+  function wire(){
+    view.querySelectorAll("[data-open]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var k=b.dataset.open; state.open[k] = !state.open[k]; render();
+      });
+    });
+    view.querySelectorAll("[data-goto]").forEach(function(b){
+      b.addEventListener("click", function(e){
+        e.preventDefault();
+        state.secTicker = b.dataset.goto; state.query=""; state.openTake=null; state.chat=[];
+        if(location.hash !== "#securities"){ location.hash = "securities"; } else { render(); window.scrollTo({top:0,behavior:"instant"}); }
+      });
+    });
+    view.querySelectorAll("[data-conv]").forEach(function(b){
+      b.addEventListener("click", function(){
+        state.conv = b.dataset.conv;
+        if(location.hash !== "#convictions"){ location.hash = "convictions"; } else { render(); window.scrollTo({top:0,behavior:"instant"}); }
+      });
+    });
+    var back = document.getElementById("back");
+    if(back) back.addEventListener("click", function(){ state.conv=null; render(); });
+    view.querySelectorAll("[data-nf]").forEach(function(b){
+      b.addEventListener("click", function(){ state.newsFilter = b.dataset.nf; render(); });
+    });
+    view.querySelectorAll("[data-dom]").forEach(function(b){
+      b.addEventListener("click", function(){ state.domFilter = b.dataset.dom; render(); });
+    });
+    view.querySelectorAll("[data-take]").forEach(function(b){
+      b.addEventListener("click", function(){ var i=+b.dataset.take; state.openTake = state.openTake===i? null : i; render(); });
+    });
+    view.querySelectorAll("[data-ask]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var c = DATA.security.chat[+b.dataset.ask];
+        state.chat.push({r:"me",t:c.q}); state.chat.push({r:"ai",t:c.a}); render();
+      });
+    });
+    var send = document.getElementById("asksend"), ain = document.getElementById("askin");
+    if(send) send.addEventListener("click", function(){
+      var v=(ain.value||"").trim(); if(!v) return;
+      state.chat.push({r:"me",t:v});
+      state.chat.push({r:"ai",t:"In the built version this question goes to the model with the filings, the call transcript and your conviction list in context. In this mockup only the suggested questions have written answers."});
+      render();
+    });
+    if(ain) ain.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); send.click(); } });
+
+    var q = document.getElementById("q");
+    if(q) q.addEventListener("input", function(){
+      state.query = q.value; render();
+      var n = document.getElementById("q"); if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+    });
+    var edit = document.getElementById("edit"), box = document.getElementById("editbox");
+    if(edit) edit.addEventListener("click", function(){ box.hidden = !box.hidden; });
+    var se = document.getElementById("saveedit");
+    if(se) se.addEventListener("click", function(){ box.hidden = true; se.textContent="Saved"; });
+
+    /* wizard */
+    var draft = document.getElementById("draft");
+    if(draft) draft.addEventListener("input", function(){ state.wiz.text = draft.value; });
+    var start = document.getElementById("start");
+    if(start) start.addEventListener("click", function(){
+      state.wiz.text = (draft.value || draft.placeholder).trim(); state.wiz.step = 0; render();
+    });
+    var ans = document.getElementById("ans");
+    if(ans) ans.addEventListener("input", function(){ state.wiz.answers[state.wiz.step] = ans.value; });
+    var next = document.getElementById("next");
+    if(next) next.addEventListener("click", function(){
+      if(state.wiz.step === 4){
+        var id = "new"+Date.now();
+        DATA.convictions.unshift({ id:id, short: state.wiz.text.split(/[,.]/)[0].slice(0,32), title: state.wiz.text,
+          score:5, added:"16 Nov 2026", horizon:"Not set", body: state.wiz.text,
+          falsify: state.wiz.answers[4] || "Answered in the pressure test.", val:0, pct:0, names:[],
+          corr:null, corrHi:"No positions behind this yet",
+          ideas:[{k:"Next step", t:"—", d:"No positions behind this conviction. Search is where you give it one."}] });
+        state.wiz = {step:5, text:"", answers:["","","","",""]};
+      } else { state.wiz.step++; }
+      render();
+    });
+    var prev = document.getElementById("prev");
+    if(prev) prev.addEventListener("click", function(){ state.wiz.step--; render(); });
+    var again = document.getElementById("again");
+    if(again) again.addEventListener("click", function(){ state.wiz = {step:-1, text:"", answers:["","","","",""]}; render(); });
+  }
+
+  readHash(); render();
+})();
+</script>
